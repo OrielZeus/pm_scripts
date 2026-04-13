@@ -1,0 +1,81 @@
+Sony Genres Upload — ProcessMaker integration
+=============================================
+
+Folder: "sony genres upload"
+Collection: 23 (genres)
+Example record data: name, value, row_id, content
+
+API base (API_HOST)
+-------------------
+Must already include /api/1.0 (do not append /api/1.0 again in paths).
+
+  Placeholder: {API_HOST}
+  Example:     https://sonymusic.cloud.processmaker.net/api/1.0
+
+Full URLs — PSTools scripts (register each PHP file in PM; slug must match the path segment)
+--------------------------------------------------------------------------------------------
+ProcessMaker exposes scripts at:  {API_HOST}/pstools/script/{slug}
+
+  File: Sony Genres Upload Main Iframe.php
+    Full URL: {API_HOST}/pstools/script/sony-genres-upload-main-iframe
+    Example:  https://sonymusic.cloud.processmaker.net/api/1.0/pstools/script/sony-genres-upload-main-iframe
+    Note:     Used as the iframe screen script. $pstoolsPaths inside this file must point to the two URLs below.
+
+  File: Sony Genres Get Collection Data.php
+    Full URL: {API_HOST}/pstools/script/sony-genres-get-collection-data
+    Example:  https://sonymusic.cloud.processmaker.net/api/1.0/pstools/script/sony-genres-get-collection-data
+
+  File: Sony Genres Export Backup.php
+    Full URL: {API_HOST}/pstools/script/sony-genres-export-backup
+    Example:  https://sonymusic.cloud.processmaker.net/api/1.0/pstools/script/sony-genres-export-backup
+
+  File: Sony Genres Apply Collection.php
+    Full URL: {API_HOST}/pstools/script/sony-genres-apply-collection
+    Example:  https://sonymusic.cloud.processmaker.net/api/1.0/pstools/script/sony-genres-apply-collection
+    Note:     Template only; wire the iframe “approve” button here when implemented.
+
+  File: INTEGRATION.txt
+    Not an HTTP endpoint — local documentation only.
+
+Full URLs — Collection API (called from PHP via callApiUrlGuzzle, not browser)
+------------------------------------------------------------------------------
+These are relative to {API_HOST} (same base as above).
+
+  List records:   {API_HOST}/collections/23/records?page={n}&per_page={m}
+  Export job:     {API_HOST}/collections/23/export          (POST)
+  Download file:  {API_HOST}/collections/23/download/{hash}   (from export job / UI; hash from PM)
+
+What each script does
+---------------------
+1) Sony Genres Upload Main Iframe.php
+   Tabbed UI: collection, Excel, comparison, backup/apply.
+   Uses $data (request_id / requestId). Calls the Get Collection and Export Backup PSTools URLs above.
+
+2) Sony Genres Get Collection Data.php
+   POST returns { success, data: [ { record_id, name, value, row_id, content, raw } ] }.
+   Embeds callApiUrlGuzzle + encodeSql at file bottom. Needs API_HOST and API_TOKEN.
+
+3) Sony Genres Export Backup.php
+   POST triggers export via callApiUrlGuzzle. Optional file attach uses raw Guzzle GET.
+
+4) Sony Genres Apply Collection.php
+   Template for apply strategy (replace / adjust / mix).
+
+PM registration
+---------------
+Create one PSTools script per PHP file. Set each script’s slug so the path matches the “Full URL” lines above, or change the slugs in Sony Genres Upload Main Iframe.php ($pstoolsPaths) to match what you registered.
+
+Browser token
+-------------
+If PSTools require Authorization from the iframe, set bearerToken in the main iframe JS
+(see Sony Genres Upload Main Iframe.php), same pattern as Upload Documents Script.
+
+Export / download
+-----------------
+Export may be async (HTTP 202). If the JSON has no download URL, use PM Collections UI or
+{API_HOST}/collections/23/download/{hash} when you have the hash.
+
+Excel
+-----
+Recognized headers (normalized): Country Local Genre Key, Local Genre Name,
+Is Active Local Genre; optional Row Id to match collection row_id.
