@@ -9,6 +9,9 @@ if (!isset($data) || !is_array($data)) {
     $data = [];
 }
 
+/** Same default API base as DLSU_User_Group_Collection_Sync when API_HOST is unset. */
+const DLSU_HARDCODE_DEV_API_HOST = 'https://dlsu.cloud.processmaker.net/api/1.0';
+
 $requestId = (int) ($data['request_id'] ?? $data['requestId'] ?? 0);
 if ($requestId <= 0) {
     return [
@@ -20,6 +23,9 @@ if ($requestId <= 0) {
 }
 
 $apiHost = rtrim((string) getenv('API_HOST'), '/');
+if ($apiHost === '') {
+    $apiHost = rtrim(DLSU_HARDCODE_DEV_API_HOST, '/');
+}
 $token = (string) getenv('API_TOKEN');
 if ($apiHost === '' || $token === '') {
     return [

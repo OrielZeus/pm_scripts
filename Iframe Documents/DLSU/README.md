@@ -18,6 +18,15 @@ Nothing in DLSU relies on static JSON files served as runtime configuration. **O
 
 Register each PHP file in ProcessMaker as a **Script** with a **slug** (examples below are defaults; override with `pstools_slug_*` in request/screen `$data` if needed).
 
+## Hardcoded DLSU tenant (optional defaults)
+
+The sync and config scripts include **fallback** constants for the [DLSU Cloud](https://dlsu.cloud.processmaker.net/requests) tenant:
+
+- **API base** (not the `/requests` UI path): `https://dlsu.cloud.processmaker.net/api/1.0` for both dev and prod alignment when no host is set in `$data` or environment.
+- **Production bearer token**: embedded as `DLSU_HARDCODE_PROD_API_TOKEN` for read-only production calls when no prod token is supplied elsewhere.
+
+Override order remains **request `$data` → environment variables → hardcoded constants**. Remove or rotate embedded tokens if the repository is shared.
+
 ## Production environment (host and token)
 
 Production is **not** the same as the dev `API_HOST` used to run PSTools. You must define **where production lives** and **which token** can read it (Gazelle / service account).

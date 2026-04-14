@@ -17,6 +17,10 @@ if (!isset($data) || !is_array($data)) {
     $data = [];
 }
 
+/** Same tenant defaults as DLSU_User_Group_Collection_Sync.php */
+const DLSU_HARDCODE_DEV_API_HOST = 'https://dlsu.cloud.processmaker.net/api/1.0';
+const DLSU_HARDCODE_PROD_API_HOST = 'https://dlsu.cloud.processmaker.net/api/1.0';
+
 /**
  * Same resolution order as DLSU_User_Group_Collection_Sync / Config_Status (production API base URL).
  */
@@ -48,41 +52,18 @@ function dlsu_iframe_resolve_prod_host(array $data): string
             return $s;
         }
     }
-    return '';
-}
-
-function dlsu_iframe_prod_token_is_preconfigured(array $data): bool
-{
-    $chain = [
-        $data['api_token_prod'] ?? null,
-        $data['production_api_token'] ?? null,
-        $data['production_token'] ?? null,
-        $data['pm_prod_api_token'] ?? null,
-        $data['PM_PROD_API_TOKEN'] ?? null,
-    ];
-    $env = $data['_env'] ?? [];
-    if (is_array($env)) {
-        $chain[] = $env['api_token_prod'] ?? null;
-        $chain[] = $env['production_api_token'] ?? null;
-        $chain[] = $env['PM_PROD_API_TOKEN'] ?? null;
-        $chain[] = $env['DLSU_PRODUCTION_API_TOKEN'] ?? null;
-    }
-    foreach (['DLSU_PRODUCTION_API_TOKEN', 'PM_PROD_API_TOKEN', 'DLSU_PROD_API_TOKEN'] as $ev) {
-        $g = getenv($ev);
-        $chain[] = ($g !== false && $g !== '') ? $g : null;
-    }
-    foreach ($chain as $v) {
-        if ($v !== null && trim((string) $v) !== '') {
-            return true;
-        }
-    }
-    return false;
+    return rtrim(DLSU_HARDCODE_PROD_API_HOST, '/');
 }
 
 $API_HOST = rtrim((string) ($data['_env']['API_HOST'] ?? getenv('API_HOST') ?: ''), '/');
+if ($API_HOST === '') {
+    $API_HOST = rtrim(DLSU_HARDCODE_DEV_API_HOST, '/');
+}
 $prodHostDefault = dlsu_iframe_resolve_prod_host($data);
-$prodTokenPreconfigured = dlsu_iframe_prod_token_is_preconfigured($data);
-$requestId = (int) ($data['request_id'] ?? $data['requestId'] ?? ($data['_request']['id'] ?? 0));
+/** PSTools sync script embeds a production token fallback; iframe cannot read it — UI assumes prod token is available server-side. */
+$prodTokenPreconfigured = true;
+$requestIdRaw = (int) ($data['request_id'] ?? $data['requestId'] ?? ($data['_request']['id'] ?? 0));
+$requestId = $requestIdRaw >= 1 ? $requestIdRaw : 1;
 
 $slugConfig = preg_replace('/[^a-z0-9\-]/', '', (string) ($data['pstools_slug_config'] ?? 'dlsu-config-status'));
 $slugSync = preg_replace('/[^a-z0-9\-]/', '', (string) ($data['pstools_slug_sync'] ?? 'dlsu-user-group-collection-sync'));
@@ -151,6 +132,9 @@ $style = <<<'CSS'
   table.dataTable thead th{background:#1e3a5f!important;color:#fff!important;font-size:.78rem;}
   .alert-soft{background:#fff8e6;border:1px solid #fcd34d;color:#92400e;}
   .loader-overlay{position:fixed;inset:0;background:rgba(255,255,255,.75);display:none;align-items:center;justify-content:center;z-index:9999;}
+  .btn-dlsu-sync{font-size:1.05rem;font-weight:600;padding:.65rem 1.4rem;border-radius:10px;box-shadow:0 4px 14px rgba(22,163,74,.35);}
+  .btn-dlsu-sync i{margin-right:.5rem;}
+  .sync-run-card{border:1px solid #e2e8f0;border-radius:10px;padding:14px;background:#fafbfc;}
 </style>
 CSS;
 
@@ -214,6 +198,14 @@ $body = <<<'HTML'
     <|/div>
 
     <|div class="tab-pane fade" id="tab-sync">
+      <|div class="sync-run-card mb-3">
+        <|p class="small text-muted mb-2"><|strong>Dev / PSTools<|/strong> uses this screen’s API host for script calls. <|strong>Production<|/strong> values below are read-only (SQL + collection compare on prod).<|/p>
+        <|div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+          <|button type="button" class="btn btn-success btn-dlsu-sync" id="btnRunSync"><|i class="fas fa-sync-alt"><|/i> Start synchronization<|/button>
+          <|button type="button" class="btn btn-outline-secondary" id="btnRefreshCfg"><|i class="fas fa-redo"><|/i> Re-check configuration<|/button>
+        <|/div>
+        <|p class="small mb-0 text-muted">Runs the PSTools sync script with the options below and refreshes Dashboard / detail tables.<|/p>
+      <|/div>
       <|div class="row">
         <|div class="col-md-4 mb-2">
           <|label>Action<|/label>
@@ -240,7 +232,7 @@ $body = <<<'HTML'
         <|div class="col-md-6 mb-2">
           <|label>Production API base URL<|/label>
           <|input type="text" id="inpProdHost" class="form-control form-control-sm" placeholder="https://prod.example.com/api/1.0" autocomplete="off" />
-          <|small class="text-muted">Same as <code>api_host_prod<|/code> / <code>production_api_host<|/code>. Filled here overrides request/env when non-empty.<|/small>
+          <|small class="text-muted">Read-only prod API (not the dev PSTools host). Overrides <code>api_host_prod<|/code> when non-empty.<|/small>
         <|/div>
         <|div class="col-md-6 mb-2">
           <|label>Production bearer token<|/label>
@@ -248,9 +240,36 @@ $body = <<<'HTML'
           <|small class="text-muted" id="lblProdTokenHint"><|/small>
         <|/div>
       <|/div>
-      <|button type="button" class="btn btn-primary btn-sm" id="btnRunSync"><|i class="fas fa-play"><|/i> Run PSTools sync<|/button>
-      <|button type="button" class="btn btn-outline-secondary btn-sm ml-2" id="btnRefreshCfg"><|i class="fas fa-redo"><|/i> Re-check configuration<|/button>
-      <|p class="text-muted small mt-3 mb-0">Backend URL: <code id="lblSyncUrl"><|/code><|/p>
+      <|h6 class="text-secondary mt-2 mb-2">Collections &amp; audit (optional)<|/h6>
+      <|div class="row">
+        <|div class="col-md-3 mb-2">
+          <|label class="small">collection_id_prod<|/label>
+          <|input type="text" id="inpColProd" class="form-control form-control-sm" placeholder="" autocomplete="off" />
+        <|/div>
+        <|div class="col-md-3 mb-2">
+          <|label class="small">collection_id_dev<|/label>
+          <|input type="text" id="inpColDev" class="form-control form-control-sm" placeholder="" autocomplete="off" />
+        <|/div>
+        <|div class="col-md-3 mb-2">
+          <|label class="small">collection_id_prod_2<|/label>
+          <|input type="text" id="inpColProd2" class="form-control form-control-sm" placeholder="" autocomplete="off" />
+        <|/div>
+        <|div class="col-md-3 mb-2">
+          <|label class="small">collection_id_dev_2<|/label>
+          <|input type="text" id="inpColDev2" class="form-control form-control-sm" placeholder="" autocomplete="off" />
+        <|/div>
+      <|/div>
+      <|div class="row">
+        <|div class="col-md-4 mb-2">
+          <|label class="small">audit_collection_id (log rows on dev)<|/label>
+          <|input type="text" id="inpAuditColl" class="form-control form-control-sm" placeholder="" autocomplete="off" />
+        <|/div>
+        <|div class="col-md-4 mb-2">
+          <|label class="small">collection_match_key<|/label>
+          <|input type="text" id="inpColMatch" class="form-control form-control-sm" placeholder="email" autocomplete="off" />
+        <|/div>
+      <|/div>
+      <|p class="text-muted small mt-2 mb-0">Backend URL: <code id="lblSyncUrl"><|/code><|/p>
     <|/div>
 
     <|div class="tab-pane fade" id="tab-detail">
@@ -400,7 +419,13 @@ $script = <<<'JS'
     $("#kpiDevUsers").text(sc.dev_users != null ? sc.dev_users : "—");
     $("#kpiMissing").text(sc.missing_users_on_dev != null ? sc.missing_users_on_dev : "—");
     $("#kpiGroupDiff").text(sc.group_membership_diffs != null ? sc.group_membership_diffs : "—");
-    $("#kpiCollGap").text(sc.collection_missing_on_dev != null ? sc.collection_missing_on_dev : "—");
+    var m1 = sc.collection_missing_on_dev;
+    var m2 = sc.collection_missing_on_dev_pair_2;
+    if(m1 != null || m2 != null){
+      $("#kpiCollGap").text(((m1 != null ? m1 : 0)) + " / " + ((m2 != null ? m2 : 0)) + " (pair1 / pair2)");
+    } else {
+      $("#kpiCollGap").text("—");
+    }
     var ok = r.success !== false && !r.error;
     $("#dashSummary").html(
       "<|p class='mb-1'><|span class='badge badge-"+(ok?"success":"danger")+"'>"+(ok?"OK":"FAILED")+"<|/span> "+
@@ -430,22 +455,41 @@ $script = <<<'JS'
     if(gd.length) $("#tblGrp").DataTable({ paging: gd.length > 15, pageLength: 15 });
 
     var c = r.collections || null;
+    var c2 = r.collections_pair_2 || null;
+    var audit = r.audit_collection_log || null;
+    var h = "";
     if(c && !c.error){
-      $("#collDetail").html(
-        "<|p>Prod rows: <strong>"+(c.prod_row_count||0)+"<|/strong> — Dev rows: <strong>"+(c.dev_row_count||0)+"<|/strong> — Missing on dev: <strong>"+(c.missing_on_dev||0)+"<|/strong><|/p>"+
-        "<|p class='small'>Match key: <|code>"+esc(c.match_key||"")+"<|/code><|/p>"
-      );
-    } else {
-      $("#collDetail").text(c && c.error ? ("Collection error: "+c.error) : "No collection data in this response (set collection IDs / scope).");
+      h += "<|p><|strong>Pair 1<|/strong> — Prod: <strong>"+(c.prod_row_count||0)+"<|/strong> — Dev: <strong>"+(c.dev_row_count||0)+"<|/strong> — Missing on dev: <strong>"+(c.missing_on_dev||0)+"<|/strong><|/p>";
+      h += "<|p class='small mb-1'>Match key: <|code>"+esc(c.match_key||"")+"<|/code><|/p>";
+    } else if(c && c.error){
+      h += "<|p class='text-danger small'>Pair 1 error: "+esc(c.error)+"<|/p>";
     }
+    if(c2 && !c2.error){
+      h += "<|p><|strong>Pair 2<|/strong> — Prod: <strong>"+(c2.prod_row_count||0)+"<|/strong> — Dev: <strong>"+(c2.dev_row_count||0)+"<|/strong> — Missing on dev: <strong>"+(c2.missing_on_dev||0)+"<|/strong><|/p>";
+    } else if(c2 && c2.error){
+      h += "<|p class='text-danger small'>Pair 2 error: "+esc(c2.error)+"<|/p>";
+    }
+    if(!h){
+      h = "<|p class='text-muted small'>No collection data (set collection IDs in Run sync or request data, scope all/collections).<|/p>";
+    }
+    if(audit){
+      if(audit.skipped){
+        h += "<|p class='small text-muted mt-2'><|strong>Audit collection:<|/strong> skipped — "+esc(audit.reason||"")+"<|/p>";
+      } else if(audit.ok === false){
+        h += "<|p class='small text-danger mt-2'><|strong>Audit collection:<|/strong> "+esc(audit.error||"failed")+"<|/p>";
+      } else {
+        h += "<|p class='small text-success mt-2'><|strong>Audit collection:<|/strong> record id "+esc(audit.record_id != null ? audit.record_id : "—")+"<|/p>";
+      }
+    }
+    $("#collDetail").html(h);
   }
 
   function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
 
   function loadRequestFiles(){
     $("#filesAlert").empty();
-    if(!CONFIG.requestId || CONFIG.requestId <= 0){
-      $("#filesAlert").html('<|div class="alert alert-warning py-2 small">Request ID not set — cannot list PM attachments. Pass request_id in screen data.<|/div>');
+    if(!CONFIG.requestId || CONFIG.requestId < 1){
+      $("#filesAlert").html('<|div class="alert alert-warning py-2 small">Request ID invalid — cannot list PM attachments. Default is 1 when not in a request.<|/div>');
       return;
     }
     if(!CONFIG.pstools.files){
@@ -485,6 +529,16 @@ $script = <<<'JS'
     if(ph && String(ph).trim()) o.api_host_prod = String(ph).trim().replace(/\/+$/,"");
     var pt = $("#inpProdToken").val();
     if(pt && String(pt).trim()) o.api_token_prod = String(pt).trim();
+    function setIf(sel, key){
+      var v = $(sel).val();
+      if(v && String(v).trim()) o[key] = String(v).trim();
+    }
+    setIf("#inpColProd", "collection_id_prod");
+    setIf("#inpColDev", "collection_id_dev");
+    setIf("#inpColProd2", "collection_id_prod_2");
+    setIf("#inpColDev2", "collection_id_dev_2");
+    setIf("#inpAuditColl", "audit_collection_id");
+    setIf("#inpColMatch", "collection_match_key");
     return o;
   }
 
@@ -521,7 +575,7 @@ $script = <<<'JS'
       });
   }
 
-  $("#hdrRequestId").text(CONFIG.requestId > 0 ? CONFIG.requestId : "—");
+  $("#hdrRequestId").text(CONFIG.requestId >= 1 ? CONFIG.requestId : "—");
   $("#hdrEnvLine").text(CONFIG.apiHost ? ("Dev API: " + CONFIG.apiHost) : "API_HOST missing");
   $("#hdrProdHost").text(CONFIG.prodHostDefault || "not set");
   if(CONFIG.prodTokenPreconfigured){
@@ -530,6 +584,15 @@ $script = <<<'JS'
     $("#lblProdTokenHint").text("Paste production bearer token here if it is not set on the script executor or in request data.");
   }
   if(CONFIG.prodHostDefault) $("#inpProdHost").val(CONFIG.prodHostDefault);
+  (function(){
+    var rd = CONFIG.requestData || {};
+    if(rd.collection_id_prod) $("#inpColProd").val(String(rd.collection_id_prod));
+    if(rd.collection_id_dev) $("#inpColDev").val(String(rd.collection_id_dev));
+    if(rd.collection_id_prod_2) $("#inpColProd2").val(String(rd.collection_id_prod_2));
+    if(rd.collection_id_dev_2) $("#inpColDev2").val(String(rd.collection_id_dev_2));
+    if(rd.audit_collection_id) $("#inpAuditColl").val(String(rd.audit_collection_id));
+    if(rd.collection_match_key) $("#inpColMatch").val(String(rd.collection_match_key));
+  })();
   $("#reqMonitor").text(JSON.stringify(CONFIG.requestData, null, 2));
   $("#lblSyncUrl").text(CONFIG.pstools.sync || "—");
   loadLocalLog();
@@ -549,7 +612,7 @@ $scriptOut = str_replace(
     ['__API_HOST__', '__REQUEST_ID__', '__URL_CONFIG__', '__URL_SYNC__', '__URL_FILES__', '__REQUEST_DATA__', '__PROD_HOST_DEFAULT__', '__PROD_TOKEN_PRE__'],
     [
         addslashes($API_HOST),
-        (string) max(0, $requestId),
+        (string) max(1, $requestId),
         addslashes($urlConfig),
         addslashes($urlSync),
         addslashes($urlFiles),
