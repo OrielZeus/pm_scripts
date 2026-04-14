@@ -281,7 +281,7 @@ $body = <<<'HTML'
       <|/ul>
       <|div class="tab-content">
         <|div class="tab-pane fade show active" id="sub-miss">
-          <|table id="tblMissing" class="table table-sm table-striped w-100"><|thead><|tr><|th>username<|/th><|th>email<|/th><|th>status<|/th><|/tr><|/thead><|tbody><|/tbody><|/table>
+          <|table id="tblMissing" class="table table-sm table-striped w-100"><|thead><|tr><|th>username<|/th><|th>email<|/th><|th>firstname<|/th><|th>lastname<|/th><|th>status<|/th><|/tr><|/thead><|tbody><|/tbody><|/table>
         <|/div>
         <|div class="tab-pane fade" id="sub-grp">
           <|table id="tblGrp" class="table table-sm table-striped w-100"><|thead><|tr><|th>user<|/th><|th>prod groups<|/th><|th>dev groups<|/th><|/tr><|/thead><|tbody><|/tbody><|/table>
@@ -442,7 +442,7 @@ $script = <<<'JS'
     if($.fn.DataTable.isDataTable("#tblMissing")) $("#tblMissing").DataTable().destroy();
     $("#tblMissing tbody").empty();
     miss.forEach(function(u){
-      $("#tblMissing tbody").append("<|tr><|td>"+esc(u.username)+"<|/td><|td>"+esc(u.email)+"<|/td><|td>"+esc(u.status)+"<|/td><|/tr>");
+      $("#tblMissing tbody").append("<|tr><|td>"+esc(u.username)+"<|/td><|td>"+esc(u.email)+"<|/td><|td>"+esc(u.firstname)+"<|/td><|td>"+esc(u.lastname)+"<|/td><|td>"+esc(u.status)+"<|/td><|/tr>");
     });
     if(miss.length) $("#tblMissing").DataTable({ paging: miss.length > 15, pageLength: 15, searching: true });
 
