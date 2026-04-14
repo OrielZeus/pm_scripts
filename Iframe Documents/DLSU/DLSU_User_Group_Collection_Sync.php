@@ -529,13 +529,6 @@ if ($colProd2 !== '' && $colDev2 !== '' && ($scope === 'all' || $scope === 'coll
     $rowsCollectionDev2 = $collectionReport2['rows_dev_full'] ?? [];
 }
 
-if (($scope === 'all' || $scope === 'collections') && $colProd !== '' && $colDev !== '' && $collectionReport !== null && isset($collectionReport['error'])) {
-    return dlsu_error_response($dlsuCfg, 'Collection pair 1: ' . (string) $collectionReport['error']);
-}
-if (($scope === 'all' || $scope === 'collections') && $colProd2 !== '' && $colDev2 !== '' && $collectionReport2 !== null && isset($collectionReport2['error'])) {
-    return dlsu_error_response($dlsuCfg, 'Collection pair 2: ' . (string) $collectionReport2['error']);
-}
-
 $backupBeforeApply = null;
 if ($apply && $dlsuCfg['save_backup_in_return']) {
     $backupBeforeApply = [
@@ -605,8 +598,18 @@ $resultPayload = [
 ];
 
 if (!$apply) {
-    $resultPayload = dlsu_payload_with_audit_row($dlsuCfg, $devHost, $devTok, $resultPayload, $action, $scope, true);
-    return dlsu_success_response($dlsuCfg, $resultPayload, null, null);
+    $collectionErrHint = null;
+    if ($collectionReport !== null && isset($collectionReport['error'])) {
+        $collectionErrHint = 'Collection pair 1: ' . (string) $collectionReport['error'];
+    }
+    if ($collectionReport2 !== null && isset($collectionReport2['error'])) {
+        $collectionErrHint = $collectionErrHint
+            ? ($collectionErrHint . '; Collection pair 2: ' . (string) $collectionReport2['error'])
+            : ('Collection pair 2: ' . (string) $collectionReport2['error']);
+    }
+    $reportOk = $collectionErrHint === null;
+    $resultPayload = dlsu_payload_with_audit_row($dlsuCfg, $devHost, $devTok, $resultPayload, $action, $scope, $reportOk);
+    return dlsu_success_response($dlsuCfg, $resultPayload, null, $collectionErrHint);
 }
 
 $applied = ['users_created' => [], 'group_updates' => [], 'errors' => [], 'new_groups_created' => []];
@@ -709,14 +712,31 @@ $resultPayload['group_membership_updates_applied'] = $applied['group_updates'];
 $resultPayload['new_groups_created'] = $applied['new_groups_created'];
 $resultPayload['applied_errors'] = $applied['errors'];
 
-$applyOk = $applied['errors'] === [];
+$collectionErrApply = null;
+if ($collectionReport !== null && isset($collectionReport['error'])) {
+    $collectionErrApply = 'Collection pair 1: ' . (string) $collectionReport['error'];
+}
+if ($collectionReport2 !== null && isset($collectionReport2['error'])) {
+    $collectionErrApply = $collectionErrApply
+        ? ($collectionErrApply . '; Collection pair 2: ' . (string) $collectionReport2['error'])
+        : ('Collection pair 2: ' . (string) $collectionReport2['error']);
+}
+$applyOk = $applied['errors'] === [] && $collectionErrApply === null;
 $resultPayload = dlsu_payload_with_audit_row($dlsuCfg, $devHost, $devTok, $resultPayload, $action, $scope, $applyOk);
+
+$finalHint = null;
+if ($applied['errors'] !== []) {
+    $finalHint = implode('; ', $applied['errors']);
+}
+if ($collectionErrApply !== null) {
+    $finalHint = $finalHint ? ($finalHint . '; ' . $collectionErrApply) : $collectionErrApply;
+}
 
 return dlsu_success_response(
     $dlsuCfg,
     $resultPayload,
     $applied,
-    $applyOk ? null : implode('; ', $applied['errors'])
+    $finalHint
 );
 
 // =============================================================================
