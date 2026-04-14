@@ -1,0 +1,1 @@
+return this.CQP_TRANSIT[0]["CQP_DOMESTIC_VALIDATION"]["isValid"] && this.CQP_TRANSIT[0]["CQP_TOTAL_DOMESTIC_VALIDATION"]["isValid"];

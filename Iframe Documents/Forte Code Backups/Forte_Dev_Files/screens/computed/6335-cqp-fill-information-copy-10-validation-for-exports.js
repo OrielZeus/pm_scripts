@@ -1,0 +1,1 @@
+return this.CQP_TRANSIT[0]["CQP_EXPORTS_VALIDATION"]["isValid"] && this.CQP_TRANSIT[0]["CQP_TOTAL_EXPORTS_VALIDATION"]["isValid"];

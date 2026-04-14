@@ -62,7 +62,7 @@ $body = <<<'HTML'
 <|div class="fcb-wrap">
   <|div class="fcb-hero">
     <|h1><|i class="fas fa-database mr-2"><|/i>Forte code backups<|/h1>
-    <|p>Loads <|strong>one page at a time<|/strong> so the script executor does not run out of memory. Totals are quick; the grid uses your chosen <|strong>API<|/strong> or <|strong>SQL<|/strong> (Pro Service Tools). Export the <|strong>current page<|/strong> as a <|strong>.tar.gz<|/strong> or <|strong>.zip<|/strong> archive (no ZipArchive required for tar.gz), or attach one archive to <|strong>this request<|/strong> via the API.<|/p>
+    <|p>Loads <|strong>one page at a time<|/strong> so the script executor does not run out of memory. Totals are quick; the grid uses your chosen <|strong>API<|/strong> or <|strong>SQL<|/strong> (Pro Service Tools). Export the <|strong>current page<|/strong> as a <|strong>.tar.gz<|/strong> or <|strong>.zip<|/strong> archive. <|strong>Export all scripts/screens<|/strong> builds one full archive: <|strong>.zip<|/strong> if php-zip is installed, otherwise a single <|strong>.tar.gz<|/strong> (zlib). You can also attach an archive to <|strong>this request<|/strong> via the API.<|/p>
   <|/div>
 
   <|div class="fcb-card">
@@ -127,6 +127,8 @@ $body = <<<'HTML'
       <|div>
         <|button type="button" class="btn btn-sm btn-primary" id="btnLoadCounts"><|i class="fas fa-sync-alt mr-1"><|/i>Refresh totals<|/button>
         <|button type="button" class="btn btn-sm btn-success" id="btnExportPage"><|i class="fas fa-file-archive mr-1"><|/i>Export this page<|/button>
+        <|button type="button" class="btn btn-sm btn-outline-success" id="btnExportAllScripts" title="Full archive (.zip if php-zip exists, else .tar.gz)"><|i class="fas fa-download mr-1"><|/i>Export all scripts<|/button>
+        <|button type="button" class="btn btn-sm btn-outline-success" id="btnExportAllScreens" title="Full archive (.zip if php-zip exists, else .tar.gz)"><|i class="fas fa-download mr-1"><|/i>Export all screens<|/button>
       <|/div>
     <|/div>
     <|div class="form-row align-items-end mb-2" id="fcbExportOpts">
@@ -226,15 +228,30 @@ $script = <<<'JS'
     return o;
   }
 
-  function postJson(body){
+  function postJson(body, ajaxOpts){
     if (!CONFIG.url) return $.Deferred().reject("no url");
-    return $.ajax({
+    return $.ajax($.extend({
       url: CONFIG.url,
       type: "POST",
       contentType: "application/json",
       data: JSON.stringify(body || {}),
       dataType: "json"
-    });
+    }, ajaxOpts || {}));
+  }
+
+  function sanitizeResponseForDebug(r){
+    if (!r || typeof r !== "object") return r;
+    var o = {};
+    for (var k in r) {
+      if (!Object.prototype.hasOwnProperty.call(r, k)) continue;
+      if (k === "archive_base64" || k === "zip_base64") {
+        var s = r[k];
+        o[k] = (s != null && String(s).length) ? ("<omitted base64 len=" + String(s).length + " chars>") : s;
+        continue;
+      }
+      o[k] = r[k];
+    }
+    return o;
   }
 
   function showErr(msg){
@@ -372,9 +389,9 @@ $script = <<<'JS'
       }
       payload.request_id = rid;
     }
-    postJson(mergePayload(payload)).done(function(r){
+    postJson(mergePayload(payload), { timeout: 600000 }).done(function(r){
       if (!r || r.success === false) { showErr(r && r.error ? r.error : "export failed"); $("#outPre").text(JSON.stringify(r||{}, null, 2)); return; }
-      $("#outPre").text(JSON.stringify(r, null, 2));
+      $("#outPre").text(JSON.stringify(sanitizeResponseForDebug(r), null, 2));
       if (r.export_destination === "request") {
         return;
       }
@@ -418,8 +435,58 @@ $script = <<<'JS'
     }
   });
 
+  function exportAll(entity){
+    clearErr();
+    var attach = $("#chkAttachRequest").is(":checked");
+    var ridStr = String($("#inpRequestId").val() || "").trim();
+    var rid = ridStr ? parseInt(ridStr, 10) : parseInt(requestIdFromScreen(), 10);
+    var payload = {
+      action: "export_all",
+      entity: entity,
+      export_destination: attach ? "request" : "browser"
+    };
+    if (attach) {
+      if (!rid || rid < 1) {
+        showErr("Request ID missing — open this screen inside a running request or enter Request ID.");
+        return;
+      }
+      payload.request_id = rid;
+    }
+    postJson(mergePayload(payload), { timeout: 600000 }).done(function(r){
+      if (!r || r.success === false) { showErr(r && r.error ? r.error : "export_all failed"); $("#outPre").text(JSON.stringify(r||{}, null, 2)); return; }
+      $("#outPre").text(JSON.stringify(sanitizeResponseForDebug(r), null, 2));
+      if (r.export_destination === "request") return;
+      var defExt = (r.export_format === "tar_gz") ? ".tar.gz" : ".zip";
+      var name = r.suggested_filename || ("export-all-" + entity + defExt);
+      var b64 = r.archive_base64 || r.zip_base64;
+      if (!b64) { showErr("export_all response missing archive_base64"); return; }
+      var mime = r.archive_mime;
+      if (!mime) {
+        mime = (r.export_format === "tar_gz" || String(name).toLowerCase().indexOf(".tar.gz") >= 0)
+          ? "application/gzip" : "application/zip";
+      }
+      var blob;
+      try {
+        blob = base64ToBlob(b64, mime);
+      } catch (e) {
+        showErr("Invalid archive payload from server");
+        return;
+      }
+      var a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = name;
+      a.click();
+      setTimeout(function(){ URL.revokeObjectURL(a.href); }, 2000);
+    }).fail(function(xhr){
+      showErr("HTTP error on export_all");
+      $("#outPre").text(xhr.responseText || String(xhr.status));
+    });
+  }
+
   $("#btnLoadCounts").on("click", loadCounts);
   $("#btnExportPage").on("click", exportCurrentPage);
+  $("#btnExportAllScripts").on("click", function(){ exportAll("scripts"); });
+  $("#btnExportAllScreens").on("click", function(){ exportAll("screens"); });
   $("#selArchiveKind").on("change", function(){
     if ($(this).val() === "json") $("#chkAttachRequest").prop("checked", false);
   });

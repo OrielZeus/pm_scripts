@@ -1,0 +1,1 @@
+return this.CQP_STORAGE[0]["CQP_STORAGE_CHECKBOXES_VALIDATION"]["valid"]

@@ -1,0 +1,1 @@
+return this.CQP_SUMMARY_DETAILS[0]["CQP_DETAILS_VALIDATION"]["isValid"];

@@ -5,7 +5,7 @@
  * Register as PSTools slug e.g. forte-code-backup-batch or forte_code_backup_batch.
  *
  * Request JSON (main fields):
- *   action: "counts" | "list" | "export_chunk"  (default: counts)
+ *   action: "counts" | "list" | "export_chunk" | "export_all"  (default: counts)
  *   target: "dev" | "prod"
  *   mode:   "api" | "sql"  (default: api)
  *   entity: "scripts" | "screens" | "executors" — required for list / export_chunk
@@ -14,6 +14,7 @@
  * counts — lightweight totals only (3 small HTTP calls or 3 COUNT queries).
  * list — one page of thin rows for DataTables (no full script code in API path; SQL list omits code).
  * export_chunk — full file bodies for ONE page only (per_page capped at 50).
+ * export_all — scripts or screens only: walks every page; prefers .zip (ZipArchive), else .tar.gz (zlib streaming).
  *   export_format: "tar_gz" (default) — POSIX ustar .tar + gzip; returns archive_base64 (no ZipArchive).
  *   export_format: "zip" — ZipArchive when available; fails with E_ZIP if extension missing.
  *   export_format: "auto" — try zip, then tar_gz.
@@ -56,6 +57,12 @@ forte_unnest_request_data($data);
 
 const FORTE_EXPORT_CHUNK_MAX = 50;
 const FORTE_LIST_MAX = 100;
+/** API fetch page size for export_all scripts (full code rows). */
+const FORTE_EXPORT_ALL_PER_PAGE_SCRIPTS = 15;
+/** API/SQL fetch page size for export_all screens. */
+const FORTE_EXPORT_ALL_PER_PAGE_SCREENS = 50;
+/** Refuse browser download when the zip exceeds this (bytes). */
+const FORTE_EXPORT_ALL_MAX_BYTES = 104857600;
 
 /**
  * @return array{0:string,1:string} host, token
@@ -242,7 +249,63 @@ function forte_flatten_api_row(?array $row): array
     return $row;
 }
 
-function forte_api_get_one_page(string $host, string $token, string $path, int $page, int $perPage, array $extraQuery = []): array
+/**
+ * Lower-bound row count when the API omits meta.total (inexact; prefer forte_api_probe_total).
+ *
+ * @param array<string,mixed> $json
+ * @param array<string,mixed> $meta
+ * @param array<int,mixed> $chunk
+ */
+function forte_api_resolve_total(array $json, array $meta, array $chunk, int $perPage, int $page): int
+{
+    foreach (['total', 'Total'] as $tk) {
+        if (isset($meta[$tk]) && is_numeric($meta[$tk])) {
+            return max(0, (int) $meta[$tk]);
+        }
+    }
+    if (isset($json['total']) && is_numeric($json['total'])) {
+        return max(0, (int) $json['total']);
+    }
+    $lp = (int) ($meta['last_page'] ?? 0);
+    $pp = (int) ($meta['per_page'] ?? $perPage);
+    $cp = (int) ($meta['current_page'] ?? $page);
+    if ($pp < 1) {
+        $pp = $perPage;
+    }
+    if ($lp > 0 && $pp > 0) {
+        if ($cp >= $lp) {
+            return max(0, ($lp - 1) * $pp + count($chunk));
+        }
+
+        return max(count($chunk), ($cp - 1) * $pp + count($chunk));
+    }
+    $tp = (int) ($meta['total_pages'] ?? 0);
+    if ($tp > 0 && $pp > 0 && $cp >= $tp) {
+        return max(0, ($tp - 1) * $pp + count($chunk));
+    }
+
+    return count($chunk);
+}
+
+/**
+ * Exact total: GET page=1&per_page=1 — with per_page 1, meta.last_page equals global total rows.
+ *
+ * @param array<string,string> $extraQuery
+ */
+function forte_api_probe_total(string $host, string $token, string $path, array $extraQuery = []): int
+{
+    $p = forte_api_get_one_page($host, $token, $path, 1, 1, $extraQuery, false);
+    $meta = $p['meta'] ?? [];
+    if (isset($meta['total']) && is_numeric($meta['total'])) {
+        return max(0, (int) $meta['total']);
+    }
+    $lp = (int) ($meta['last_page'] ?? 0);
+    $pp = (int) ($meta['per_page'] ?? 1);
+
+    return ($lp > 0 && $pp === 1) ? max(0, $lp) : (int) ($p['raw_total'] ?? 0);
+}
+
+function forte_api_get_one_page(string $host, string $token, string $path, int $page, int $perPage, array $extraQuery = [], bool $probeTotal = false): array
 {
     if (!class_exists('\GuzzleHttp\Client')) {
         throw new \RuntimeException('GuzzleHttp\Client is required.');
@@ -280,16 +343,17 @@ function forte_api_get_one_page(string $host, string $token, string $path, int $
         $chunk[$i] = forte_flatten_api_row(is_array($cell) ? $cell : []);
     }
     $meta = is_array($json['meta'] ?? null) ? $json['meta'] : [];
-    $total = 0;
-    if (isset($meta['total'])) {
-        $total = (int) $meta['total'];
-    } elseif (isset($json['total'])) {
-        $total = (int) $json['total'];
-    } else {
-        $total = count($chunk);
-    }
+    $hasExplicit = isset($meta['total']) || isset($meta['Total'])
+        || (isset($json['total']) && is_numeric($json['total']));
+    $total = forte_api_resolve_total($json, $meta, $chunk, $perPage, $page);
     if ($total < count($chunk)) {
         $total = count($chunk);
+    }
+    if (!$hasExplicit && $probeTotal) {
+        $total = forte_api_probe_total($host, $token, $path, $extraQuery);
+        if ($total < count($chunk)) {
+            $total = count($chunk);
+        }
     }
     return ['data' => $chunk, 'meta' => $meta, 'raw_total' => $total, 'http_status' => $code];
 }
@@ -474,6 +538,53 @@ function forte_normalize_export_rows(array $rows): array
 }
 
 /**
+ * Export computed entries whose type is javascript (skip expression / plain calcs).
+ *
+ * @param array<string,mixed> $row Normalized export row (lower keys).
+ *
+ * @return array<int,array{path:string,contents:string}>
+ */
+function forte_screen_extract_computed_javascript(string $root, array $row): array
+{
+    $files = [];
+    $id = $row['id'] ?? 'screen';
+    $title = (string) ($row['title'] ?? 'screen');
+    $base = $id . '-' . forte_slugify($title);
+    $computed = $row['computed'] ?? null;
+    if (is_string($computed) && $computed !== '') {
+        $decoded = json_decode($computed, true);
+        $computed = is_array($decoded) ? $decoded : null;
+    }
+    if (!is_array($computed)) {
+        return $files;
+    }
+    $j = 0;
+    foreach ($computed as $c) {
+        if (!is_array($c)) {
+            continue;
+        }
+        $type = strtolower(trim((string) ($c['type'] ?? '')));
+        if ($type !== 'javascript') {
+            continue;
+        }
+        $body = $c['formula'] ?? $c['script'] ?? $c['value'] ?? '';
+        if (!is_string($body)) {
+            $body = is_scalar($body) ? (string) $body : json_encode($body, JSON_UNESCAPED_UNICODE);
+        }
+        $name = (string) ($c['name'] ?? $c['property'] ?? $c['field'] ?? ('calc-' . $j));
+        $safe = forte_slugify($name);
+        if ($safe === '') {
+            $safe = 'calc-' . $j;
+        }
+        $path = $root . '/screens/computed/' . $base . '-' . $j . '-' . $safe . '.js';
+        $files[] = ['path' => $path, 'contents' => $body];
+        $j++;
+    }
+
+    return $files;
+}
+
+/**
  * @return array{meta:array,files:array<int,array{path:string,contents:string}>}
  */
 function forte_build_files_for_chunk(string $root, string $entity, array $rows): array
@@ -487,8 +598,14 @@ function forte_build_files_for_chunk(string $root, string $entity, array $rows):
             }
             $id = $row['id'] ?? 'x';
             $title = (string) ($row['title'] ?? 'executor');
-            $path = $root . '/script_executors/' . $id . '-' . forte_slugify($title) . '.json';
-            $files[] = ['path' => $path, 'contents' => json_encode($row, JSON_UNESCAPED_UNICODE)];
+            $base = $root . '/script_executors/' . $id . '-' . forte_slugify($title);
+            $recipe = isset($row['config']) ? (string) $row['config'] : '';
+            if ($recipe !== '') {
+                $files[] = ['path' => $base . '.composer-recipe.txt', 'contents' => $recipe];
+            }
+            $metaRow = $row;
+            unset($metaRow['config']);
+            $files[] = ['path' => $base . '.json', 'contents' => json_encode($metaRow, JSON_UNESCAPED_UNICODE)];
             $n++;
         }
         return ['meta' => ['entity' => 'executors', 'rows' => $n], 'files' => $files];
@@ -502,6 +619,9 @@ function forte_build_files_for_chunk(string $root, string $entity, array $rows):
             $title = (string) ($row['title'] ?? 'screen');
             $path = $root . '/screens/' . $id . '-' . forte_slugify($title) . '.json';
             $files[] = ['path' => $path, 'contents' => json_encode($row, JSON_UNESCAPED_UNICODE)];
+            foreach (forte_screen_extract_computed_javascript($root, $row) as $cf) {
+                $files[] = $cf;
+            }
             $n++;
         }
         return ['meta' => ['entity' => 'screens', 'rows' => $n], 'files' => $files];
@@ -619,6 +739,57 @@ function forte_build_targz_binary(array $files): ?string
     unset($tar);
 
     return $gz === false ? null : $gz;
+}
+
+/**
+ * Gzip a file on disk to another path (streaming when gzopen/gzwrite exist).
+ */
+function forte_gzip_file_streaming(string $sourcePath, string $destGzipPath): bool
+{
+    if (!is_readable($sourcePath)) {
+        return false;
+    }
+    if (function_exists('gzopen') && function_exists('gzwrite')) {
+        $in = @fopen($sourcePath, 'rb');
+        if ($in === false) {
+            return false;
+        }
+        $out = @gzopen($destGzipPath, 'wb9');
+        if ($out === false) {
+            fclose($in);
+
+            return false;
+        }
+        while (!feof($in)) {
+            $chunk = fread($in, 524288);
+            if ($chunk === false) {
+                break;
+            }
+            if ($chunk !== '' && gzwrite($out, $chunk) === false) {
+                break;
+            }
+        }
+        gzclose($out);
+        fclose($in);
+
+        return is_file($destGzipPath) && (int) filesize($destGzipPath) > 0;
+    }
+    if (!function_exists('gzencode')) {
+        return false;
+    }
+    $raw = @file_get_contents($sourcePath);
+    if ($raw === false) {
+        return false;
+    }
+    $gz = gzencode($raw, 6);
+    unset($raw);
+    if ($gz === false) {
+        return false;
+    }
+    $ok = @file_put_contents($destGzipPath, $gz) !== false;
+    unset($gz);
+
+    return $ok;
 }
 
 /**
@@ -950,9 +1121,9 @@ try {
                 ],
             ];
         }
-        $tScripts = forte_api_get_one_page($host, $token, '/scripts', 1, 1)['raw_total'];
-        $tScreens = forte_api_get_one_page($host, $token, '/screens', 1, 1)['raw_total'];
-        $tExec = forte_api_get_one_page($host, $token, '/script-executors', 1, 1)['raw_total'];
+        $tScripts = forte_api_probe_total($host, $token, '/scripts');
+        $tScreens = forte_api_probe_total($host, $token, '/screens');
+        $tExec = forte_api_probe_total($host, $token, '/script-executors');
         return [
             'success' => true,
             'action' => 'counts',
@@ -968,10 +1139,15 @@ try {
     }
 
     $entity = strtolower(trim((string) ($data['entity'] ?? '')));
-    if (!in_array($entity, ['scripts', 'screens', 'executors'], true)) {
+    $allowedForAction = $action === 'export_all'
+        ? ['scripts', 'screens']
+        : ['scripts', 'screens', 'executors'];
+    if (!in_array($entity, $allowedForAction, true)) {
         return [
             'success' => false,
-            'error' => 'entity must be scripts, screens, or executors for list/export_chunk.',
+            'error' => $action === 'export_all'
+                ? 'entity must be scripts or screens for export_all.'
+                : 'entity must be scripts, screens, or executors for list/export_chunk.',
             'error_code' => 'E_ENTITY',
         ];
     }
@@ -981,14 +1157,280 @@ try {
         return ['success' => false, 'error' => 'Bad entity', 'error_code' => 'E_ENTITY'];
     }
 
+    if ($action === 'export_all') {
+        $useZip = class_exists('\ZipArchive');
+        if (!$useZip && !function_exists('gzencode')) {
+            return [
+                'success' => false,
+                'error' => 'export_all needs PHP ZipArchive (php-zip) or zlib (gzencode) for a .tar.gz fallback.',
+                'error_code' => 'E_ARCHIVE',
+            ];
+        }
+        $exportDest = strtolower(trim((string) ($data['export_destination'] ?? 'browser')));
+        if ($exportDest !== 'request') {
+            $exportDest = 'browser';
+        }
+        $perPage = $entity === 'scripts' ? FORTE_EXPORT_ALL_PER_PAGE_SCRIPTS : FORTE_EXPORT_ALL_PER_PAGE_SCREENS;
+        $defaults = forte_api_list_query_defaults($entity);
+        $uniq = function_exists('random_bytes') ? bin2hex(random_bytes(8)) : str_replace('.', '', uniqid('', true));
+        $tmpDir = sys_get_temp_dir();
+        $zipPath = $tmpDir . DIRECTORY_SEPARATOR . 'forte_export_all_' . $uniq . '.zip';
+        $tarPath = $tmpDir . DIRECTORY_SEPARATOR . 'forte_export_all_' . $uniq . '.tar';
+        $gzPath = $tmpDir . DIRECTORY_SEPARATOR . 'forte_export_all_' . $uniq . '.tar.gz';
+        $zip = null;
+        $tf = null;
+        if ($useZip) {
+            $zip = new \ZipArchive();
+            if ($zip->open($zipPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
+                return [
+                    'success' => false,
+                    'error' => 'Could not create temporary zip for export_all.',
+                    'error_code' => 'E_ZIP',
+                ];
+            }
+        } else {
+            $tf = @fopen($tarPath, 'wb');
+            if ($tf === false) {
+                return [
+                    'success' => false,
+                    'error' => 'Could not create temporary tar file for export_all.',
+                    'error_code' => 'E_ARCHIVE',
+                ];
+            }
+        }
+        $pageNum = 1;
+        $fileEntries = 0;
+        try {
+            while (true) {
+                if ($mode === 'sql') {
+                    $offset = ($pageNum - 1) * $perPage;
+                    $endpoint = rtrim($host, '/') . forte_resolve_sql_path($data);
+                    if ($entity === 'scripts') {
+                        $sql = forte_sql_list_scripts_full($offset, $perPage);
+                    } else {
+                        $sql = forte_sql_list_screens_full($offset, $perPage);
+                    }
+                    $rows = forte_call_sql($endpoint, $token, $sql);
+                    if (isset($rows['__error__'])) {
+                        if ($useZip) {
+                            $zip->close();
+                            @unlink($zipPath);
+                        } else {
+                            fclose($tf);
+                            @unlink($tarPath);
+                        }
+
+                        return ['success' => false, 'error' => (string) $rows['__error__'], 'error_code' => 'E_SQL'];
+                    }
+                    if (!is_array($rows)) {
+                        $rows = [];
+                    }
+                } else {
+                    $pack = forte_api_get_one_page($host, $token, $path, $pageNum, $perPage, $defaults, false);
+                    $rows = $pack['data'];
+                }
+                if (!is_array($rows)) {
+                    $rows = [];
+                }
+                $n = count(forte_ensure_list_of_rows($rows));
+                if ($n === 0) {
+                    break;
+                }
+                $rows = forte_normalize_export_rows($rows);
+                $built = forte_build_files_for_chunk($rootFolder, $entity, $rows);
+                unset($rows);
+                foreach ($built['files'] as $f) {
+                    if (!is_array($f)) {
+                        continue;
+                    }
+                    $name = str_replace('\\', '/', (string) ($f['path'] ?? ''));
+                    $name = ltrim($name, '/');
+                    if ($name === '') {
+                        continue;
+                    }
+                    $body = (string) ($f['contents'] ?? '');
+                    if ($useZip) {
+                        $zip->addFromString($name, $body);
+                    } else {
+                        $block = forte_ustar_one_entry($name, $body);
+                        if ($block !== '') {
+                            fwrite($tf, $block);
+                        }
+                    }
+                    $fileEntries++;
+                }
+                unset($built);
+                if (function_exists('gc_collect_cycles')) {
+                    gc_collect_cycles();
+                }
+                if ($n < $perPage) {
+                    break;
+                }
+                $pageNum++;
+            }
+        } catch (\Throwable $e) {
+            if ($useZip) {
+                $zip->close();
+                @unlink($zipPath);
+            } else {
+                if (is_resource($tf)) {
+                    fclose($tf);
+                }
+                @unlink($tarPath);
+                @unlink($gzPath);
+            }
+            throw $e;
+        }
+        if ($fileEntries < 1) {
+            if ($useZip) {
+                $zip->close();
+                @unlink($zipPath);
+            } else {
+                if (is_resource($tf)) {
+                    fclose($tf);
+                }
+                @unlink($tarPath);
+            }
+
+            return [
+                'success' => false,
+                'error' => 'export_all produced no files.',
+                'error_code' => 'E_EMPTY_EXPORT',
+            ];
+        }
+        if ($useZip) {
+            $zip->close();
+            $workPath = $zipPath;
+            $ext = '.zip';
+            $mime = 'application/zip';
+            $kind = 'zip';
+            $exportFmtLabel = 'zip';
+        } else {
+            fwrite($tf, str_repeat("\0", 1024));
+            fclose($tf);
+            $tf = null;
+            if (!forte_gzip_file_streaming($tarPath, $gzPath)) {
+                @unlink($tarPath);
+                @unlink($gzPath);
+
+                return [
+                    'success' => false,
+                    'error' => 'Could not gzip temporary tar for export_all (check zlib).',
+                    'error_code' => 'E_ARCHIVE',
+                ];
+            }
+            @unlink($tarPath);
+            $workPath = $gzPath;
+            $ext = '.tar.gz';
+            $mime = 'application/gzip';
+            $kind = 'tar_gz';
+            $exportFmtLabel = 'tar_gz';
+        }
+        if (!is_file($workPath)) {
+            @unlink($workPath);
+
+            return [
+                'success' => false,
+                'error' => 'export_all archive missing after build.',
+                'error_code' => 'E_ARCHIVE',
+            ];
+        }
+        $size = (int) filesize($workPath);
+        if ($size > FORTE_EXPORT_ALL_MAX_BYTES) {
+            @unlink($workPath);
+
+            return [
+                'success' => false,
+                'error' => 'export_all archive exceeds ' . (int) (FORTE_EXPORT_ALL_MAX_BYTES / 1048576) . ' MiB. Export in smaller chunks with export_chunk or attach to request.',
+                'error_code' => 'E_TOO_LARGE',
+            ];
+        }
+        $archiveBin = file_get_contents($workPath);
+        @unlink($workPath);
+        if ($archiveBin === false || $archiveBin === '') {
+            return [
+                'success' => false,
+                'error' => 'Could not read export_all archive.',
+                'error_code' => 'E_ARCHIVE',
+            ];
+        }
+        $uploadFilename = $rootFolder . '-all-' . $entity . '-' . gmdate('Ymd-His') . $ext;
+        $dataNameRaw = (string) ($data['request_file_data_name'] ?? 'FORTE_CODE_BACKUP_EXPORT');
+        $dataName = preg_replace('/[^A-Za-z0-9_]/', '_', $dataNameRaw);
+        if ($dataName === '' || strlen($dataName) > 60) {
+            $dataName = 'FORTE_CODE_BACKUP_EXPORT';
+        }
+        if ($exportDest === 'request') {
+            $rid = $data['request_id'] ?? null;
+            if (is_array($rid) && isset($rid['id'])) {
+                $rid = $rid['id'];
+            }
+            $requestId = is_numeric($rid) ? (int) $rid : 0;
+            if ($requestId < 1) {
+                return [
+                    'success' => false,
+                    'error' => 'export_destination=request requires a positive request_id.',
+                    'error_code' => 'E_REQUEST_ID',
+                ];
+            }
+            $up = forte_pm_upload_request_file($host, $token, $requestId, $archiveBin, $uploadFilename, $dataName);
+            unset($archiveBin);
+            if (!$up['success']) {
+                return [
+                    'success' => false,
+                    'error' => 'Request file upload failed: ' . ($up['error'] ?? 'unknown'),
+                    'error_code' => 'E_UPLOAD',
+                    'http_status' => $up['http_status'] ?? null,
+                ];
+            }
+
+            return [
+                'success' => true,
+                'action' => 'export_all',
+                'export_destination' => 'request',
+                'export_format' => $exportFmtLabel,
+                'target' => $target,
+                'mode' => $mode,
+                'root_folder' => $rootFolder,
+                'entity' => $entity,
+                'file_count' => $fileEntries,
+                'archive_bytes' => $size,
+                'request_id' => $requestId,
+                'request_file_data_name' => $dataName,
+                'file_upload_id' => $up['file_upload_id'],
+                'uploaded_file_name' => $uploadFilename,
+                'message' => 'Full export attached to the request (data name "' . $dataName . '").',
+            ];
+        }
+
+        return [
+            'success' => true,
+            'action' => 'export_all',
+            'export_destination' => 'browser',
+            'export_format' => $exportFmtLabel,
+            'target' => $target,
+            'mode' => $mode,
+            'root_folder' => $rootFolder,
+            'entity' => $entity,
+            'file_count' => $fileEntries,
+            'archive_bytes' => $size,
+            'suggested_filename' => $uploadFilename,
+            'archive_kind' => $kind,
+            'archive_mime' => $mime,
+            'archive_base64' => base64_encode($archiveBin),
+            'meta' => [
+                'entity' => $entity,
+                'pages_walked' => $pageNum,
+                'rows_per_page' => $perPage,
+                'archive_backend' => $useZip ? 'zip' : 'tar_gz',
+            ],
+        ];
+    }
+
     $maxPer = $action === 'export_chunk' ? FORTE_EXPORT_CHUNK_MAX : FORTE_LIST_MAX;
     [$page, $perPage] = forte_parse_paging($data, 25, $maxPer);
-    if ($mode === 'api' && $entity === 'scripts') {
-        if ($action === 'list') {
-            $perPage = min($perPage, 25);
-        } elseif ($action === 'export_chunk') {
-            $perPage = min($perPage, 15);
-        }
+    if ($mode === 'api' && $entity === 'scripts' && $action === 'export_chunk') {
+        $perPage = min($perPage, 15);
     }
     $offset = ($page - 1) * $perPage;
     $draw = isset($data['draw']) ? (int) $data['draw'] : 0;
@@ -1019,7 +1461,7 @@ try {
             $total = forte_sql_first_cnt($cntRows);
         } else {
             // Same REST endpoints as core ScriptController / ScreenController / ScriptExecutorController index().
-            $pack = forte_api_get_one_page($host, $token, $path, $page, $perPage, forte_api_list_query_defaults($entity));
+            $pack = forte_api_get_one_page($host, $token, $path, $page, $perPage, forte_api_list_query_defaults($entity), true);
             $rows = $pack['data'];
             if ($entity === 'scripts') {
                 $rows = forte_strip_script_code($rows);
@@ -1217,7 +1659,7 @@ try {
 
     return [
         'success' => false,
-        'error' => 'Unknown action "' . $action . '". Use counts, list, or export_chunk.',
+        'error' => 'Unknown action "' . $action . '". Use counts, list, export_chunk, or export_all.',
         'error_code' => 'E_ACTION',
     ];
 } catch (\Throwable $e) {

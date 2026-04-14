@@ -1,0 +1,1 @@
+return this.CQP_UNDERWRITING_YEAR + "_Cargo Framework FAC No. " + this.CQP_PIVOT_TABLE_NUMBER + "_" + this.CQP_INSURED_NAME + "_SLIP"

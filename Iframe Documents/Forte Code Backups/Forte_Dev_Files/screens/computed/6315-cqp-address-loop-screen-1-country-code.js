@@ -1,0 +1,1 @@
+return this._parent._parent.CQP_COUNTRY.COUNTRY_CODE;
