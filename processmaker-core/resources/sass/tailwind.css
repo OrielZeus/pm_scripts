@@ -1,0 +1,55 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+    /* Tailwind preflight is disabled by default
+      In order to make it easy to add a border by simply adding the border class,
+      Tailwind overrides the default border styles for all elements with the following rules: */
+    *,
+    ::before,
+    ::after {
+      border-width: 0;
+      border-style: solid;
+      border-color: theme('borderColor.DEFAULT', currentColor);
+    }
+
+    /* Ordered and unordered lists are unstyled by default,
+      with no bullets/numbers and no margin or padding. */
+    ol,
+    ul {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+  }
+
+  .form-group ol.b-form-tags-list,
+  .form-group ul.b-form-tags-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .form-group ol.dropdown-menu,
+  .form-group ul.dropdown-menu {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* Reset the list style for the form-group */
+  .form-group ol,
+  .form-group ul {
+    list-style: revert-layer;
+    margin: 0;
+    padding: revert-layer;
+  }
+
+  /* Reset the list style for the vue-form-renderer and screen-container */
+  .multiselect__content-wrapper ul,
+  .multiselect__content-wrapper ol {
+    list-style: revert-layer;
+    margin: revert-layer;
+    padding: 0px;
+  }

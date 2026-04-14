@@ -1,0 +1,13 @@
+{
+  "extends": [
+    "bpmnlint:recommended",
+    "plugin:processmaker/all"
+  ],
+  "rules": {
+    "no-inclusive-gateway": "off",
+    "fake-join": "off",
+    "no-duplicate-sequence-flows": "off",
+    "single-blank-start-event": "off",
+    "processmaker/call-activity-sequence-flow": "off"
+  }
+}

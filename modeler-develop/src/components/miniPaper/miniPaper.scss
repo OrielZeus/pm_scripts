@@ -1,0 +1,29 @@
+$transition: 0.1s;
+
+.mini-paper-container {
+  position: absolute;
+  bottom: 60px;
+  left: 0;
+  display: flex;
+  box-shadow: 0px 4px 4px rgba(0, 0, 0, 0.25);
+  border: 1px solid $border-color;
+  cursor: pointer;
+
+  .mini-paper {
+    pointer-events: none;
+  }
+
+  &.closed {
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity $transition ease-out, visibility $transition ease-out;
+  }
+
+  &.opened {
+    visibility: visible;
+    opacity: 1;
+    transition-property: visibility, opacity, right;
+    transition-duration: $transition;
+    transition-timing-function: ease-in, ease-in, linear;
+  }
+}

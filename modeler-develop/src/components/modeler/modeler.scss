@@ -1,0 +1,52 @@
+@import '~jointjs/dist/joint.min.css';
+@import '~@/assets/scss/utilities/utilities.cursor';
+@import '~@/assets/scss/tools/tools.animations';
+
+.modeler {
+  .main-paper {
+    position: absolute;
+    height: 100%;
+    max-height: 100%;
+    min-height: 100%;
+    left: 0;
+    top: 0;
+  }
+
+  .grabbing-cursor, .grabbing-cursor .joint-element, .grabbing-cursor path {
+    cursor: grabbing !important;
+  }
+  
+  .grab-cursor, .grab-cursor .joint-element, .grab-cursor path {
+    cursor: grab !important;
+  }
+
+  .paper-container {
+    position: initial !important;
+    user-select: none;
+  }
+
+  .joint-marker-vertex:hover {
+    fill: $error-color;
+    cursor: url('../../assets/delete-icon-vertex.png') 0 0, pointer;
+  }
+}
+
+.ignore-pointer {
+  pointer-events: none;
+}
+
+.no-pointer-events {
+  pointer-events: none;
+}
+
+.element-tooltip {
+  position: absolute;
+  border: 1px solid #B9CFE2;
+  background-color: #EDF4FF;
+  padding: 3px 8px;
+  font-size: 0.8em;
+}
+
+.transparent-cell {
+  opacity: 0.4;
+}

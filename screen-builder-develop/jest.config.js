@@ -1,0 +1,30 @@
+module.exports = {
+  moduleFileExtensions: [
+    'js',
+    'jsx',
+    'json',
+    'vue',
+  ],
+  transform: {
+    '^.+\\.vue$': 'vue-jest',
+    '.+\\.(css|styl|less|sass|scss|svg|png|jpg|ttf|woff|woff2)$': 'jest-transform-stub',
+    '^.+\\.jsx?$': 'babel-jest',
+  },
+  moduleNameMapper: {
+    '^@/(.*)$': '<rootDir>/src/$1',
+    '\\.(css|less)$': 'identity-obj-proxy',
+  },
+  snapshotSerializers: [
+    'jest-serializer-vue',
+  ],
+  testMatch: [
+    '**/tests/unit/**/*.spec.(js|jsx|ts|tsx)|**/__tests__/*.(js|jsx|ts|tsx)',
+  ],
+  testEnvironment: 'jsdom',
+  testEnvironmentOptions: {
+    url: 'http://localhost/',
+  },
+  transformIgnorePatterns: [
+    'node_modules/(?!(vuetable-2|vue-uniq-ids|@processmaker/vue-form-elements/src)/)',
+  ],
+};

@@ -1,0 +1,46 @@
+@extends('layouts.layout')
+
+@section('title')
+    {{__('Processes Catalogue')}}
+@endsection
+
+@section('sidebar')
+    @include('layouts.sidebar', ['sidebar' => Menu::get('sidebar_processes_catalogue')])
+@endsection
+
+@section('meta')
+  <meta name="request-id" content="">
+@endsection
+
+@section('content')
+  <div id="processes-catalogue" class="px-3 tw-h-[99%] tw-overflow-hidden">
+    <processes-catalogue
+      :process="{{$process ?? 0}}"
+      :current-user-id="{{ \Auth::user()->id }}"
+      :current-user="{{ \Auth::user() }}"
+      :user-config="{{$userConfiguration ?? []}}"
+    >
+    </processes-catalogue>
+  </div>
+@endsection
+
+@section('js')
+  <script>
+    window.ProcessMaker.isDocumenterInstalled = {{
+      Js::from(\ProcessMaker\PackageHelper::isPmPackageProcessDocumenterInstalled())
+    }};
+    window.ProcessMaker.permission = {{
+      Js::from(\Auth::user()->hasPermissionsFor('processes', 'process-templates', 'pm-blocks', 'projects', 'documentation'))
+    }};
+    window.ProcessMaker.defaultSavedSearch = {{{$defaultSavedSearch ?? 'null'}}};
+    window.ProcessMaker.isTceCustomization = {{{config('app.tce_customization_enable') ? 'true' : 'false'}}};
+    window.ProcessMaker.metricsApiEndpoint = `{{{$metricsApiEndpoint}}}`;
+  </script>
+  @foreach($manager->getScripts() as $script)
+    <script src="{{$script}}"></script>
+  @endforeach
+  <script src="{{mix('js/processes-catalogue/index.js')}}"></script>
+  <script>
+    window.Processmaker.user = @json($currentUser);
+  </script>
+@endsection

@@ -1,0 +1,129 @@
+<?php
+
+namespace ProcessMaker\Policies;
+
+use Illuminate\Auth\Access\HandlesAuthorization;
+use Illuminate\Auth\Access\Response;
+use ProcessMaker\Models\AnonymousUser;
+use ProcessMaker\Models\Group;
+use ProcessMaker\Models\ProcessRequestToken;
+use ProcessMaker\Models\Screen;
+use ProcessMaker\Models\User;
+
+class ProcessRequestTokenPolicy
+{
+    use HandlesAuthorization;
+
+    /**
+     * Run before all methods to determine if the
+     * user is an admin and can do everything.
+     *
+     * @param  User  $user
+     * @return mixed
+     */
+    public function before(User $user)
+    {
+        if ($user->is_administrator) {
+            return true;
+        }
+    }
+
+    /**
+     * Determine whether the user can view the process request token.
+     *
+     * @param  User  $user
+     * @param  ProcessRequestToken  $processRequestToken
+     * @return mixed
+     */
+    public function view(User $user, ProcessRequestToken $processRequestToken)
+    {
+        if ($processRequestToken->user_id == $user->id ||
+            in_array($user->id, $processRequestToken->process?->manager_id ?? [])
+        ) {
+            return true;
+        }
+        if ($user->canSelfServe($processRequestToken)) {
+            return true;
+        }
+    }
+
+    /**
+     * Determine whether the user can update the process request token.
+     *
+     * @param  User  $user
+     * @param  ProcessRequestToken  $processRequestToken
+     * @return mixed
+     */
+    public function update(User $user, ProcessRequestToken $processRequestToken)
+    {
+        if (
+            $processRequestToken->user_id === $user->id ||
+            $processRequestToken->user_id === app(AnonymousUser::class)->id ||
+            in_array($user->id, $processRequestToken->process?->manager_id ?? [])
+        ) {
+            return true;
+        }
+        if ($user->canSelfServe($processRequestToken)) {
+            return true;
+        }
+    }
+
+    /**
+     * Determine if the user can view a screen associated with the task
+     *
+     * @param  User  $user
+     * @param  ProcessRequestToken  $processRequestToken
+     */
+    public function viewScreen(User $user, ProcessRequestToken $task): bool
+    {
+        return $user->can('update', $task);
+    }
+
+    /**
+     * Determine if a user can rollback the process request.
+     *
+     * @param  User  $user
+     * @param  ProcessRequestToken  $processRequestToken
+     *
+     * @return bool
+     */
+    public function rollback(User $user, ProcessRequestToken $task)
+    {
+        // For now, only the process manager can rollback the request
+        return in_array($user->id, $task->process?->manager_id ?? []);
+    }
+
+    public function reassign(User $user, ProcessRequestToken $task)
+    {
+        // If user is process manager
+        if (in_array($user->id, $task->process?->manager_id ?? [])) {
+            return true;
+        }
+
+        // If user exists in the list of reassign users for the process
+        $reassignmentPermissions = $task->process->getProperty('reassignment_permissions');
+        if (is_array($reassignmentPermissions)) {
+            $allowedUsers = collect($reassignmentPermissions['users']);
+            foreach ($reassignmentPermissions['groups'] as $groupId) {
+                $group = Group::findOrFail($groupId);
+                $allowedUsers = $allowedUsers->merge(
+                    $group->recursive_users->pluck('id')
+                );
+            }
+            if ($allowedUsers->contains($user->id)) {
+                return true;
+            }
+        }
+
+        if ($user->can('update', $task)) {
+            $definitions = $task->getDefinition();
+            if (empty($definitions['allowReassignment']) || $definitions['allowReassignment'] === 'false') {
+                return Response::deny('Not authorized to reassign this task');
+            }
+
+            return true;
+        } else {
+            return Response::deny('Not authorized to update this task');
+        }
+    }
+}

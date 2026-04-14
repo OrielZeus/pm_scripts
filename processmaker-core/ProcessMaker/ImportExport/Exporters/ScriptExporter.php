@@ -1,0 +1,82 @@
+<?php
+
+namespace ProcessMaker\ImportExport\Exporters;
+
+use ProcessMaker\ImportExport\DependentType;
+use ProcessMaker\Models\EnvironmentVariable;
+use ProcessMaker\Models\ScriptCategory;
+use ProcessMaker\Models\User;
+
+class ScriptExporter extends ExporterBase
+{
+    public $handleDuplicatesByIncrementing = ['title'];
+
+    public static $fallbackMatchColumn = 'title';
+
+    public function export() : void
+    {
+        $this->exportCategories();
+
+        foreach ($this->getEnvironmentVariables() as $environmentVariable) {
+            $this->addDependent(DependentType::ENVIRONMENT_VARIABLES, $environmentVariable, EnvironmentVariableExporter::class);
+        }
+
+        if ($this->model->runAsUser) {
+            $this->addDependent('user', $this->model->runAsUser, UserExporter::class);
+        }
+
+        if ($this->model->scriptExecutor) {
+            $this->addDependent('executor', $this->model->scriptExecutor, ScriptExecutorExporter::class);
+        }
+    }
+
+    public function import() : bool
+    {
+        $this->associateCategories(ScriptCategory::class, 'script_category_id');
+
+        foreach ($this->getDependents('user', true) as $dependent) {
+            $scriptUser = $dependent->model;
+            // Assign the user ID to run the script
+            // If the user is not set in the dependent modal, default to the admin user
+            $this->model->run_as_user_id = $scriptUser?->id ?? User::where('is_administrator', true)->first()->id;
+        }
+
+        foreach ($this->getDependents('executor', true) as $dependent) {
+            $executor = $dependent->model;
+            $this->model->script_executor_id = $executor->id;
+        }
+
+        // Pre-save cleanup for data source scripts to prevent constraint violations
+        if ($this->mode === 'update' && $this->model->exists) {
+            // Check if this script has any data source relationships that might cause conflicts
+            $hasDataSourceRelationships = \DB::table('data_source_scripts')
+                ->where('script_id', $this->model->id)
+                ->exists();
+
+            if ($hasDataSourceRelationships) {
+                // Clean up any conflicting records in data_source_scripts
+                \DB::table('data_source_scripts')
+                    ->where('script_id', $this->model->id)
+                    ->where('id', '!=', $this->model->id)
+                    ->delete();
+            }
+        }
+
+        return $this->model->save();
+    }
+
+    private function getEnvironmentVariables() : array
+    {
+        $environmentVariables = EnvironmentVariable::get();
+        $environmentVariablesFound = [];
+
+        // Search for environment variable present in the code
+        foreach ($environmentVariables as $variable) {
+            if (preg_match('/[^a-zA-Z0-9\s]' . $variable->name . '[^a-zA-Z0-9\s]?/', $this->model->code)) {
+                $environmentVariablesFound[] = $variable;
+            }
+        }
+
+        return $environmentVariablesFound;
+    }
+}
