@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Sony Genres Upload — main iframe (collection_23)
  *
@@ -14,12 +15,16 @@
  */
 
 $collectionId = 23;
-$requestId = isset($data['request_id']) ? (int) $data['request_id'] : (int) ($data['requestId'] ?? 1);
+$defaultRequestId = 90235;
+$requestId = isset($data['request_id']) ? (int) $data['request_id'] : (int) ($data['requestId'] ?? $defaultRequestId);
 $apiHost = rtrim(getenv('API_HOST') ?: '', '/');
 
 $pstoolsPaths = [
-    'get_collection' => '/pstools/script/sony-genres-get-collection-data',
-    'export_backup' => '/pstools/script/sony-genres-export-backup',
+  'get_collection' => '/pstools/script/sony-genres-get-collection-data',
+  'export_backup' => '/pstools/script/sony-genres-export-backup',
+  'save_backup' => '/pstools/script/sony-genres-save-backup-to-request',
+  'upload_file' => '/pstools/script/sony-genres-upload-file-to-request',
+  'apply_collection' => '/pstools/script/sony-genres-apply-collection',
 ];
 
 $requestDataJson = json_encode($data ?? [], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
@@ -35,6 +40,15 @@ $html .= '<style>
 #requestDataMonitor { max-height: 220px; overflow: auto; font-size: 0.8rem; background: #f8f9fa; border-radius: 6px; padding: 10px; }
 .compare-table td { vertical-align: middle; font-size: 0.85rem; }
 .step-num { display: inline-flex; width: 28px; height: 28px; border-radius: 50%; background: #007bff; color: #fff; align-items: center; justify-content: center; font-size: 0.85rem; margin-right: 8px; }
+.dash-card { border-radius: 12px; border: none; color: #fff; padding: 1rem 1.1rem; box-shadow: 0 4px 14px rgba(0,0,0,.12); min-height: 92px; }
+.dash-card .dash-num { font-size: 1.75rem; font-weight: 700; line-height: 1.2; }
+.dash-card .dash-lbl { font-size: 0.8rem; opacity: 0.95; font-weight: 500; }
+.dash-card.dash-new { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+.dash-card.dash-update { background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); color: #333; }
+.dash-card.dash-coll { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+.dash-card.dash-ok { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); }
+#compareFilterBar .btn { border-radius: 20px; margin-right: 6px; margin-bottom: 6px; }
+#compareFilterBar .btn.active { box-shadow: inset 0 0 0 2px rgba(0,0,0,.2); font-weight: 600; }
 </style>';
 $html .= '</head>';
 
@@ -76,31 +90,47 @@ $html .= '</div>';
 $html .= '<div class="tab-pane fade" id="tab-import" role="tabpanel">';
 $html .= '<div class="row">';
 $html .= '<div class="col-md-8">';
-$html .= '<p class="text-muted small">Upload a .xlsx with columns: <strong>Country Local Genre Key</strong>, <strong>Local Genre Name</strong>, <strong>Is Active Local Genre</strong>. Optional: <strong>Row Id</strong> to match collection <code>row_id</code>.</p>';
+$html .= '<p class="text-muted small">Columns: <strong>Country</strong>, <strong>Local Genre Key</strong> (maps to collection <code>value</code>), <strong>Local Genre Name</strong>, <strong>Is Active</strong>, optional <strong>Global Genre</strong>, optional <strong>Row Id</strong> (matches <code>row_id</code>).</p>';
 $html .= '<div class="custom-file mb-2">';
 $html .= '<|input type="file" class="custom-file-input" id="excelFile" accept=".xlsx,.xls">';
 $html .= '<|label class="custom-file-label" for="excelFile">Choose Excel file…</|label>';
 $html .= '</div>';
-$html .= '<|button type="button" class="btn btn-primary" id="btnParseExcel"><i class="fas fa-file-excel"></i> Parse and prepare comparison</|button>';
+$html .= '<div class="btn-group flex-wrap mb-2" role="group">';
+$html .= '<|button type="button" class="btn btn-primary" id="btnParseExcel"><i class="fas fa-file-excel"></i> Parse &amp; compare</|button>';
+$html .= '<|button type="button" class="btn btn-outline-secondary" id="btnUploadExcelToRequest"><i class="fas fa-cloud-upload-alt"></i> Upload file to request</|button>';
+$html .= '</div>';
+$html .= '<p id="uploadFileStatus" class="small text-muted mb-0"></p>';
 $html .= '</div></div>';
 $html .= '<div id="excelPreview" class="mt-3 small text-muted"></div>';
 $html .= '</div>';
 
 /* Tab: comparison */
 $html .= '<div class="tab-pane fade" id="tab-compare" role="tabpanel">';
-$html .= '<p class="text-muted small">Results: Excel rows missing in the collection (by key), collection-only rows, and matches with differences in <code>value</code> or <code>row_id</code>.</p>';
+$html .= '<p class="text-muted small">Matching: first by Excel <strong>Local Genre Key</strong> = collection <code>value</code>; if no hit, by normalized <strong>name</strong> vs collection <code>content</code>/<code>name</code> (e.g. &quot;Latin&quot; ↔ <code>la6131111</code>).</p>';
 $html .= '<div id="compareSummary" class="mb-3"></div>';
-$html .= '<div class="table-responsive"><table class="table table-sm compare-table table-bordered" id="compareTable"><thead><tr>';
-$html .= '<th>Status</th><th>Key (Excel / value)</th><th>Excel name</th><th>In collection (value / row_id / name)</th>';
+$html .= '<div id="compareFilterBar" class="mb-2">';
+$html .= '<span class="text-muted small mr-2">Filter:</span>';
+$html .= '<|button type="button" class="btn btn-sm btn-outline-secondary active" data-cmp-filter="ALL">All</|button>';
+$html .= '<|button type="button" class="btn btn-sm btn-outline-danger" data-cmp-filter="NEW">New</|button>';
+$html .= '<|button type="button" class="btn btn-sm btn-outline-warning" data-cmp-filter="UPDATE">To update</|button>';
+$html .= '<|button type="button" class="btn btn-sm btn-outline-success" data-cmp-filter="OK">Unchanged</|button>';
+$html .= '<|button type="button" class="btn btn-sm btn-outline-primary" data-cmp-filter="COLL_ONLY">Collection only</|button>';
+$html .= '</div>';
+$html .= '<div class="table-responsive"><table class="table table-sm compare-table table-striped table-bordered nowrap" id="compareTable" style="width:100%"><thead><tr>';
+$html .= '<th>Status</th><th>Match</th><th>Excel key</th><th>Excel</th><th>Collection</th>';
 $html .= '</tr></thead><tbody></tbody></table></div>';
 $html .= '</div>';
 
 /* Tab: backup and apply */
 $html .= '<div class="tab-pane fade" id="tab-apply" role="tabpanel">';
 $html .= '<div class="mb-4">';
-$html .= '<span class="step-num">1</span><strong>Backup</strong> — official collection export and attach to the request (if the API returns a download URL).';
+$html .= '<span class="step-num">1</span><strong>Backup</strong> — save current collection JSON into request variable <code>collection_backup</code>, then optional PM export.';
 $html .= '<div class="mt-2 ml-4">';
-$html .= '<|button type="button" class="btn btn-warning btn-sm" id="btnBackup"><i class="fas fa-cloud-download-alt"></i> Run export / backup</|button>';
+$html .= '<|button type="button" class="btn btn-primary btn-sm" id="btnSaveJsonBackup"><i class="fas fa-save"></i> Save JSON backup to request</|button>';
+$html .= '<span id="jsonBackupStatus" class="ml-2 small"></span>';
+$html .= '</div>';
+$html .= '<div class="mt-2 ml-4">';
+$html .= '<|button type="button" class="btn btn-warning btn-sm" id="btnBackup"><i class="fas fa-cloud-download-alt"></i> Run collection export (XLSX job)</|button>';
 $html .= '<span id="backupStatus" class="ml-2 small"></span>';
 $html .= '</div></div>';
 
@@ -125,7 +155,7 @@ $html .= '</div></div>';
 $html .= '<div class="mb-2">';
 $html .= '<span class="step-num">3</span><strong>Continue workflow</strong>';
 $html .= '<div class="ml-4 mt-2">';
-$html .= '<|button type="button" class="btn btn-success" id="btnApproveContinue"><i class="fas fa-check"></i> Approve and continue (wire to your apply PSTools)</|button>';
+$html .= '<|button type="button" class="btn btn-success" id="btnApproveContinue"><i class="fas fa-check"></i> Approve and apply</|button>';
 $html .= '</div></div>';
 $html .= '</div>';
 
@@ -136,6 +166,9 @@ $html .= '</body>';
 $apiBaseJs = addslashes($apiHost);
 $getPathJs = addslashes($pstoolsPaths['get_collection']);
 $exportPathJs = addslashes($pstoolsPaths['export_backup']);
+$saveBackupPathJs = addslashes($pstoolsPaths['save_backup']);
+$uploadFilePathJs = addslashes($pstoolsPaths['upload_file']);
+$applyPathJs = addslashes($pstoolsPaths['apply_collection']);
 
 $html .= <<<SCRIPT
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
@@ -152,7 +185,10 @@ $html .= <<<SCRIPT
     collectionId: {$collectionId},
     pstools: {
       getCollection: "{$apiBaseJs}{$getPathJs}",
-      exportBackup: "{$apiBaseJs}{$exportPathJs}"
+      exportBackup: "{$apiBaseJs}{$exportPathJs}",
+      saveBackup: "{$apiBaseJs}{$saveBackupPathJs}",
+      uploadFile: "{$apiBaseJs}{$uploadFilePathJs}",
+      applyCollection: "{$apiBaseJs}{$applyPathJs}"
     },
     requestData: {$requestDataJson}
   };
@@ -170,6 +206,8 @@ $html .= <<<SCRIPT
   var collectionRows = [];
   var excelRows = [];
   var lastCompare = null;
+  var compareDt = null;
+  var compareFilter = 'ALL';
 
   function normalizeHeader(s) {
     return String(s || '').trim().toLowerCase().replace(/\\s+/g, '_');
@@ -180,16 +218,79 @@ $html .= <<<SCRIPT
     headers.forEach(function(h, i) {
       map[normalizeHeader(h)] = rowObj[h] !== undefined ? rowObj[h] : Object.values(rowObj)[i];
     });
-    var key = map['country_local_genre_key'] || map['local_genre_key'] || map['genre_key'] || map['value'] || '';
+    var key = map['local_genre_key'] || map['country_local_genre_key'] || map['genre_key'] || map['value'] || '';
     var name = map['local_genre_name'] || map['name'] || map['content'] || '';
-    var active = map['is_active_local_genre'] ?? map['is_active'] ?? '';
+    var active = map['is_active'] ?? map['is_active_local_genre'] ?? '';
     var rowId = map['row_id'] || map['rowid'] || '';
+    var globalGenre = map['global_genre'] || map['global'] || '';
     return {
       key: String(key).trim(),
       name: String(name).trim(),
       active: active,
-      row_id: String(rowId).trim()
+      row_id: String(rowId).trim(),
+      global_genre: String(globalGenre).trim()
     };
+  }
+
+  function parseActiveJs(v) {
+    if (v === true || v === false) return v;
+    var s = String(v === undefined || v === null ? '' : v).trim().toLowerCase();
+    return s === 'true' || s === '1' || s === 'yes' || s === 'si' || s === 'sí';
+  }
+
+  function collActive(cr) {
+    var r = cr.raw || {};
+    if (r.is_active !== undefined) return parseActiveJs(r.is_active);
+    return true;
+  }
+
+  function collGlobal(cr) {
+    var r = cr.raw || {};
+    return String(r.global_genre || '').trim();
+  }
+
+  /** Lowercase, trim, collapse spaces, strip accents (Latin ↔ latin) */
+  function normLabel(s) {
+    var t = String(s === undefined || s === null ? '' : s).trim().toLowerCase();
+    try {
+      if (t.normalize) t = t.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    } catch (e) {}
+    t = t.replace(/\\s+/g, ' ');
+    return t;
+  }
+
+  function collLabelsForIndex(cr) {
+    var raw = cr.raw || {};
+    var out = {};
+    function add(s) {
+      var n = normLabel(s);
+      if (n) out[n] = true;
+    }
+    add(cr.content);
+    add(cr.name);
+    add(raw.content);
+    add(raw.name);
+    return Object.keys(out);
+  }
+
+  function indexByValue(rows) {
+    var ix = {};
+    rows.forEach(function(r) {
+      var k = String(r.value || '').trim();
+      if (k) ix[k] = r;
+    });
+    return ix;
+  }
+
+  function buildLabelIndex(collectionRows) {
+    var labelIndex = {};
+    collectionRows.forEach(function(cr) {
+      collLabelsForIndex(cr).forEach(function(nl) {
+        if (!labelIndex[nl]) labelIndex[nl] = [];
+        labelIndex[nl].push(cr);
+      });
+    });
+    return labelIndex;
   }
 
   function loadCollection(cb) {
@@ -260,13 +361,32 @@ $html .= <<<SCRIPT
     reader.readAsArrayBuffer(f);
   });
 
-  function indexByValue(rows) {
-    var ix = {};
-    rows.forEach(function(r) {
-      var k = String(r.value || '').trim();
-      if (k) ix[k] = r;
-    });
-    return ix;
+  function fmtExcel(ex) {
+    if (!ex) return '—';
+    var g = ex.global_genre ? ' · global: ' + ex.global_genre : '';
+    return 'name: ' + (ex.name || '') + ' · active: ' + parseActiveJs(ex.active) + g + (ex.row_id ? ' · row_id: ' + ex.row_id : '');
+  }
+
+  function fmtCollPlain(coll) {
+    if (!coll) return '—';
+    var g = collGlobal(coll) ? ' · global: ' + collGlobal(coll) : '';
+    return 'value: ' + (coll.value || '') + ' · row_id: ' + (coll.row_id || '') + ' · ' +
+      (coll.name || coll.content || '') + ' · active: ' + collActive(coll) + g;
+  }
+
+  function rowIssues(er, cr) {
+    var vMatch = String(cr.value || '').trim() === String(er.key || '').trim();
+    var ridMatch = !er.row_id || String(cr.row_id || '').trim() === String(er.row_id).trim();
+    var nameLoose = !er.name || normLabel(cr.name || cr.content || '') === normLabel(er.name);
+    var activeMatch = parseActiveJs(er.active) === collActive(cr);
+    var globalMatch = String(er.global_genre || '').trim() === collGlobal(cr);
+    return {
+      value: vMatch,
+      row_id: ridMatch,
+      name: nameLoose,
+      active: activeMatch,
+      global_genre: globalMatch
+    };
   }
 
   function runCompare() {
@@ -274,83 +394,251 @@ $html .= <<<SCRIPT
       loadCollection(function() { runCompare(); });
       return;
     }
+    if (!excelRows.length) {
+      $('#compareSummary').html('<p class="text-muted mb-0">Import an Excel file to run comparison.</p>');
+      if ($.fn.DataTable.isDataTable('#compareTable')) {
+        compareDt.clear().draw();
+      }
+      lastCompare = null;
+      $('#btnApproveContinue').prop('disabled', true);
+      return;
+    }
+
+    excelRows.forEach(function(er) { delete er._matchMeta; });
+
     var byVal = indexByValue(collectionRows);
-    var tbody = $('#compareTable tbody');
-    tbody.empty();
+    var labelIndex = buildLabelIndex(collectionRows);
+    var usedCollIds = {};
     var onlyExcel = [], onlyColl = [], mismatch = [], ok = [];
 
-    var excelKeys = {};
     excelRows.forEach(function(er) {
-      if (!er.key) return;
-      excelKeys[er.key] = true;
-      var cr = byVal[er.key];
+      if (!er.key && !er.name) return;
+      var cr = null;
+      var matchType = null;
+      if (er.key) {
+        var byKey = byVal[er.key];
+        if (byKey && !usedCollIds[byKey.record_id]) {
+          cr = byKey;
+          matchType = 'value';
+        }
+      }
+      if (!cr && er.name) {
+        var nl = normLabel(er.name);
+        var pool = nl ? (labelIndex[nl] || []) : [];
+        for (var pi = 0; pi < pool.length; pi++) {
+          if (!usedCollIds[pool[pi].record_id]) {
+            cr = pool[pi];
+            matchType = 'label';
+            break;
+          }
+        }
+      }
       if (!cr) {
         onlyExcel.push({ excel: er, coll: null });
         return;
       }
-      var vMatch = String(cr.value || '').trim() === er.key;
-      var ridMatch = !er.row_id || String(cr.row_id || '').trim() === er.row_id;
-      var nameLoose = !er.name || String(cr.name || cr.content || '').toLowerCase() === er.name.toLowerCase();
-      if (vMatch && ridMatch && nameLoose) ok.push({ excel: er, coll: cr });
-      else mismatch.push({ excel: er, coll: cr, issues: {
-        value: vMatch,
-        row_id: ridMatch,
-        name: nameLoose
-      }});
+      usedCollIds[cr.record_id] = true;
+      er._matchMeta = { recordId: cr.record_id, matchType: matchType };
+      var issues = rowIssues(er, cr);
+      var allOk = issues.value && issues.row_id && issues.name && issues.active && issues.global_genre;
+      if (allOk) ok.push({ excel: er, coll: cr, matchType: matchType });
+      else mismatch.push({ excel: er, coll: cr, matchType: matchType, issues: issues });
     });
 
     collectionRows.forEach(function(cr) {
-      var k = String(cr.value || '').trim();
-      if (k && !excelKeys[k]) onlyColl.push(cr);
+      var rid = cr.record_id;
+      if (rid != null && !usedCollIds[rid]) onlyColl.push(cr);
     });
 
     lastCompare = { onlyExcel: onlyExcel, onlyColl: onlyColl, mismatch: mismatch, ok: ok };
 
-    function addRow(status, badgeClass, excel, coll, extra) {
-      var chtml = coll
-        ? ('value: <code>' + (coll.value || '') + '</code> · row_id: <code>' + (coll.row_id || '') + '</code> · name: ' + (coll.name || coll.content || ''))
-        : '—';
-      var ehtml = excel
-        ? ('<code>' + excel.key + '</code> · ' + (excel.name || '') + (excel.row_id ? ' · row_id: ' + excel.row_id : ''))
-        : '—';
-      tbody.append(
-        '<tr><td><span class="badge badge-' + badgeClass + '">' + status + '</span>' + (extra || '') + '</td>' +
-        '<td>' + (excel ? '<code>' + excel.key + '</code>' : '—') + '</td>' +
-        '<td>' + (excel ? excel.name : '—') + '</td>' +
-        '<td>' + chtml + '</td></tr>'
-      );
+    var rows = [];
+    function pushRow(r) {
+      rows.push(r);
     }
 
-    onlyExcel.forEach(function(x) { addRow('Excel only', 'warning', x.excel, null); });
-    onlyColl.forEach(function(cr) { addRow('Collection only', 'secondary', null, cr); });
-    mismatch.forEach(function(x) {
-      var issues = [];
-      if (!x.issues.row_id) issues.push('row_id');
-      if (!x.issues.name) issues.push('name/content');
-      addRow('Mismatch', 'danger', x.excel, x.coll, ' <small class="text-muted">(' + issues.join(', ') + ')</small>');
+    onlyExcel.forEach(function(x) {
+      pushRow({
+        statusCode: 'NEW',
+        statusOrder: 1,
+        statusLabel: 'New',
+        badgeClass: 'danger',
+        matchType: '—',
+        excelKey: x.excel.key ? '<code>' + x.excel.key + '</code>' : '—',
+        excelDetail: fmtExcel(x.excel),
+        collDetail: '—'
+      });
     });
-    ok.slice(0, 50).forEach(function(x) { addRow('OK', 'success', x.excel, x.coll); });
-    if (ok.length > 50) {
-      tbody.append('<tr><td colspan="4" class="text-muted">… and ' + (ok.length - 50) + ' more OK rows omitted from the table</td></tr>');
-    }
+    onlyColl.forEach(function(cr) {
+      pushRow({
+        statusCode: 'COLL_ONLY',
+        statusOrder: 2,
+        statusLabel: 'Collection only',
+        badgeClass: 'secondary',
+        matchType: '—',
+        excelKey: '—',
+        excelDetail: '—',
+        collDetail: fmtCollPlain(cr)
+      });
+    });
+    mismatch.forEach(function(x) {
+      var iss = x.issues;
+      var parts = [];
+      if (!iss.row_id) parts.push('row_id');
+      if (!iss.name) parts.push('name');
+      if (!iss.active) parts.push('is_active');
+      if (!iss.global_genre) parts.push('global_genre');
+      if (!iss.value) parts.push('value/key');
+      var mt = x.matchType === 'value' ? 'By key' : (x.matchType === 'label' ? 'By name' : '—');
+      pushRow({
+        statusCode: 'UPDATE',
+        statusOrder: 3,
+        statusLabel: 'To update',
+        badgeClass: 'warning',
+        matchType: mt + (parts.length ? ' · ' + parts.join(', ') : ''),
+        excelKey: x.excel.key ? '<code>' + x.excel.key + '</code>' : '—',
+        excelDetail: fmtExcel(x.excel),
+        collDetail: fmtCollPlain(x.coll)
+      });
+    });
+    ok.forEach(function(x) {
+      var mt = x.matchType === 'value' ? 'By key' : 'By name';
+      pushRow({
+        statusCode: 'OK',
+        statusOrder: 4,
+        statusLabel: 'OK',
+        badgeClass: 'success',
+        matchType: mt,
+        excelKey: x.excel.key ? '<code>' + x.excel.key + '</code>' : '—',
+        excelDetail: fmtExcel(x.excel),
+        collDetail: fmtCollPlain(x.coll)
+      });
+    });
 
     $('#compareSummary').html(
-      '<div class="row text-center">' +
-      '<div class="col"><div class="border rounded p-2"><div class="h4 mb-0">' + onlyExcel.length + '</div><small>Excel only</small></div></div>' +
-      '<div class="col"><div class="border rounded p-2"><div class="h4 mb-0">' + onlyColl.length + '</div><small>Collection only</small></div></div>' +
-      '<div class="col"><div class="border rounded p-2"><div class="h4 mb-0 text-danger">' + mismatch.length + '</div><small>Mismatches</small></div></div>' +
-      '<div class="col"><div class="border rounded p-2"><div class="h4 mb-0 text-success">' + ok.length + '</div><small>Matches</small></div></div>' +
+      '<div class="row">' +
+      '<div class="col-6 col-md-3 mb-2"><div class="dash-card dash-new"><div class="dash-num">' + onlyExcel.length + '</div><div class="dash-lbl"><i class="fas fa-plus-circle"></i> New (Excel only)</div></div></div>' +
+      '<div class="col-6 col-md-3 mb-2"><div class="dash-card dash-update"><div class="dash-num">' + mismatch.length + '</div><div class="dash-lbl"><i class="fas fa-edit"></i> To update</div></div></div>' +
+      '<div class="col-6 col-md-3 mb-2"><div class="dash-card dash-coll"><div class="dash-num">' + onlyColl.length + '</div><div class="dash-lbl"><i class="fas fa-database"></i> Collection only</div></div></div>' +
+      '<div class="col-6 col-md-3 mb-2"><div class="dash-card dash-ok"><div class="dash-num">' + ok.length + '</div><div class="dash-lbl"><i class="fas fa-check-circle"></i> Unchanged</div></div></div>' +
       '</div>'
     );
 
-    var allowContinue = (mismatch.length === 0) || $('#strReplace').is(':checked');
+    if ($.fn.DataTable.isDataTable('#compareTable')) {
+      compareDt.clear();
+      compareDt.rows.add(rows);
+      compareDt.draw();
+    } else {
+      compareDt = $('#compareTable').DataTable({
+        data: rows,
+        columns: [
+          {
+            data: 'statusLabel',
+            title: 'Status',
+            render: function(d, t, row) {
+              return '<span class="badge badge-' + row.badgeClass + '">' + row.statusLabel + '</span>';
+            },
+            createdCell: function(td, cellData, rowData) {
+              $(td).attr('data-order', rowData.statusOrder);
+            }
+          },
+          { data: 'matchType', title: 'Match', defaultContent: '—' },
+          { data: 'excelKey', title: 'Excel key' },
+          { data: 'excelDetail', title: 'Excel' },
+          { data: 'collDetail', title: 'Collection' },
+          { data: 'statusCode', visible: false, searchable: true }
+        ],
+        pageLength: 25,
+        lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, 'All']],
+        order: [[0, 'asc']],
+        language: { search: 'Search table:' }
+      });
+      $('#compareTable_filter input').addClass('form-control form-control-sm');
+    }
+
+    applyCompareFilter();
+
+    var strat = $('input[name="strategy"]:checked').val();
+    var allowContinue = excelRows.length > 0;
+    if (strat === 'adjust' && onlyExcel.length > 0) allowContinue = false;
     $('#btnApproveContinue').prop('disabled', !allowContinue);
   }
+
+  function applyCompareFilter() {
+    if (!compareDt) return;
+    var api = compareDt;
+    if (compareFilter === 'ALL') {
+      api.column(5).search('');
+    } else {
+      api.column(5).search('^' + compareFilter + '$', true, false);
+    }
+    api.draw();
+  }
+
+  $('#compareFilterBar').on('click', 'button[data-cmp-filter]', function() {
+    compareFilter = $(this).attr('data-cmp-filter') || 'ALL';
+    $('#compareFilterBar button').removeClass('active');
+    $(this).addClass('active');
+    applyCompareFilter();
+  });
 
   $('#btnApproveContinue').prop('disabled', true);
 
   $('input[name="strategy"]').on('change', function() {
     if (lastCompare) runCompare();
+  });
+
+  $('#btnSaveJsonBackup').on('click', function() {
+    $('#jsonBackupStatus').text('Saving collection_backup…');
+    $.ajax({
+      url: CONFIG.pstools.saveBackup,
+      type: 'POST',
+      headers: authHeaders(),
+      data: JSON.stringify({ request_id: CONFIG.requestId }),
+      success: function(res) {
+        if (res.success === false) {
+          $('#jsonBackupStatus').html('<span class="text-danger">' + (res.error || 'Failed') + '</span>');
+          return;
+        }
+        $('#jsonBackupStatus').html('<span class="text-success">Saved ' + (res.record_count || 0) + ' records to request data (collection_backup).</span>');
+      },
+      error: function(xhr) {
+        $('#jsonBackupStatus').html('<span class="text-danger">HTTP ' + xhr.status + '</span>');
+      }
+    });
+  });
+
+  $('#btnUploadExcelToRequest').on('click', function() {
+    var f = document.getElementById('excelFile').files[0];
+    if (!f) { alert('Choose an Excel file first'); return; }
+    $('#uploadFileStatus').text('Uploading…');
+    var reader = new FileReader();
+    reader.onload = function(ev) {
+      var b64 = ev.target.result.split(',')[1];
+      $.ajax({
+        url: CONFIG.pstools.uploadFile,
+        type: 'POST',
+        headers: authHeaders(),
+        data: JSON.stringify({
+          request_id: CONFIG.requestId,
+          filename: f.name,
+          mimetype: f.type || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          filedata: b64,
+          data_name: 'sony_genres_source_file'
+        }),
+        success: function(res) {
+          if (res.success === false) {
+            $('#uploadFileStatus').html('<span class="text-danger">' + (res.error || 'Upload failed') + '</span>');
+            return;
+          }
+          $('#uploadFileStatus').html('<span class="text-success">Uploaded to request ' + CONFIG.requestId + '</span>');
+        },
+        error: function(xhr) {
+          $('#uploadFileStatus').html('<span class="text-danger">HTTP ' + xhr.status + '</span>');
+        }
+      });
+    };
+    reader.readAsDataURL(f);
   });
 
   $('#btnBackup').on('click', function() {
@@ -379,7 +667,61 @@ $html .= <<<SCRIPT
 
   $('#btnApproveContinue').on('click', function() {
     var strat = $('input[name="strategy"]:checked').val();
-    alert('Wire your apply PSTools here. Strategy: ' + strat + '. Request: ' + CONFIG.requestId);
+    if (!excelRows.length) {
+      alert('Parse an Excel file first (Import tab).');
+      return;
+    }
+    if (strat === 'replace') {
+      if (!window.confirm('REPLACE will DELETE all genres in collection ' + CONFIG.collectionId + ' and recreate from this Excel. Continue?')) return;
+    }
+    if (strat === 'adjust' && lastCompare && lastCompare.onlyExcel.length) {
+      alert('Strategy "Adjust only" cannot add new rows. Choose "Mix" for new genres or remove new rows from the file.');
+      return;
+    }
+    var payload = {
+      request_id: CONFIG.requestId,
+      strategy: strat,
+      excel_rows: excelRows.map(function(r) {
+        var row = {
+          key: r.key,
+          name: r.name,
+          active: r.active,
+          row_id: r.row_id,
+          global_genre: r.global_genre
+        };
+        if (r._matchMeta && r._matchMeta.recordId) {
+          row.record_id = r._matchMeta.recordId;
+        }
+        return row;
+      }),
+      confirm_replace: strat === 'replace'
+    };
+    $('#btnApproveContinue').prop('disabled', true).text('Applying…');
+    $.ajax({
+      url: CONFIG.pstools.applyCollection,
+      type: 'POST',
+      headers: authHeaders(),
+      data: JSON.stringify(payload),
+      success: function(res) {
+        $('#btnApproveContinue').prop('disabled', false).html('<i class="fas fa-check"></i> Approve and apply');
+        if (res.success === false) {
+          alert('Apply failed: ' + (res.error || JSON.stringify(res)));
+          return;
+        }
+        var rep = res.report || {};
+        alert('Done. Created: ' + (rep.created && rep.created.length) + ', updated: ' + (rep.updated && rep.updated.length) + ', deleted: ' + (rep.deleted && rep.deleted.length) + '. Reloading collection.');
+        loadCollection(function() {
+          table.clear();
+          table.rows.add(collectionRows);
+          table.draw();
+          if (excelRows.length) runCompare();
+        });
+      },
+      error: function(xhr) {
+        $('#btnApproveContinue').prop('disabled', false).html('<i class="fas fa-check"></i> Approve and apply');
+        alert('HTTP error: ' + xhr.status);
+      }
+    });
   });
 
   $('a[data-toggle="tab"][href="#tab-compare"]').on('shown.bs.tab', function() {
@@ -390,5 +732,5 @@ $html .= <<<SCRIPT
 SCRIPT;
 
 return [
-    'PSTOOLS_RESPONSE_HTML' => str_replace(['<|', '</|'], ['<', '</'], $html),
+  'PSTOOLS_RESPONSE_HTML' => str_replace(['<|', '</|'], ['<', '</'], $html),
 ];

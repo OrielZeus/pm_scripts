@@ -19,7 +19,8 @@ ProcessMaker exposes scripts at:  {API_HOST}/pstools/script/{slug}
   File: Sony Genres Upload Main Iframe.php
     Full URL: {API_HOST}/pstools/script/sony-genres-upload-main-iframe
     Example:  https://sonymusic.cloud.processmaker.net/api/1.0/pstools/script/sony-genres-upload-main-iframe
-    Note:     Used as the iframe screen script. $pstoolsPaths inside this file must point to the two URLs below.
+    Note:     Iframe script. Default request_id in PHP is 90235 if $data does not pass request_id/requestId.
+              $pstoolsPaths must match the slugs you register for all PSTools below.
 
   File: Sony Genres Get Collection Data.php
     Full URL: {API_HOST}/pstools/script/sony-genres-get-collection-data
@@ -29,10 +30,20 @@ ProcessMaker exposes scripts at:  {API_HOST}/pstools/script/{slug}
     Full URL: {API_HOST}/pstools/script/sony-genres-export-backup
     Example:  https://sonymusic.cloud.processmaker.net/api/1.0/pstools/script/sony-genres-export-backup
 
+  File: Sony Genres Save Backup To Request.php
+    Full URL: {API_HOST}/pstools/script/sony-genres-save-backup-to-request
+    Example:  https://sonymusic.cloud.processmaker.net/api/1.0/pstools/script/sony-genres-save-backup-to-request
+    Note:     POST { "request_id": 90235 } — loads collection_23 and saves JSON into request data key collection_backup.
+
+  File: Sony Genres Upload File To Request.php
+    Full URL: {API_HOST}/pstools/script/sony-genres-upload-file-to-request
+    Example:  https://sonymusic.cloud.processmaker.net/api/1.0/pstools/script/sony-genres-upload-file-to-request
+    Note:     POST same body pattern as upload-files-table: request_id, filename, mimetype, filedata (base64).
+
   File: Sony Genres Apply Collection.php
     Full URL: {API_HOST}/pstools/script/sony-genres-apply-collection
     Example:  https://sonymusic.cloud.processmaker.net/api/1.0/pstools/script/sony-genres-apply-collection
-    Note:     Template only; wire the iframe “approve” button here when implemented.
+    Note:     POST { request_id, strategy: replace|adjust|mix, excel_rows[], confirm_replace (true for replace) }.
 
   File: INTEGRATION.txt
     Not an HTTP endpoint — local documentation only.
@@ -48,8 +59,11 @@ These are relative to {API_HOST} (same base as above).
 What each script does
 ---------------------
 1) Sony Genres Upload Main Iframe.php
-   Tabbed UI: collection, Excel, comparison, backup/apply.
-   Uses $data (request_id / requestId). Calls the Get Collection and Export Backup PSTools URLs above.
+   Tabbed UI: collection, Excel import, comparison dashboard (New / To update / Collection only / OK), backup/apply.
+   Default request_id 90235. Calls Get Collection, Save JSON backup, Upload file, Export, Apply PSTools.
+   Comparison matches each Excel row to the collection in order: (1) Local Genre Key === collection value;
+   (2) else normalized Local Genre Name vs collection content/name (case- and accent-insensitive).
+   Apply sends optional record_id when a row was matched by name so the server updates the correct record.
 
 2) Sony Genres Get Collection Data.php
    POST returns { success, data: [ { record_id, name, value, row_id, content, raw } ] }.
@@ -59,7 +73,14 @@ What each script does
    POST triggers export via callApiUrlGuzzle. Optional file attach uses raw Guzzle GET.
 
 4) Sony Genres Apply Collection.php
-   Template for apply strategy (replace / adjust / mix).
+   replace: delete all collection records, then POST each Excel row. adjust: PATCH only existing keys (no creates). mix: POST missing + PATCH changed.
+   excel_rows may include record_id (from the iframe when the row was matched by label); that ID takes precedence over value lookup.
+
+5) Sony Genres Save Backup To Request.php
+   PUT /requests/{id} merging data.collection_backup (full collection snapshot).
+
+6) Sony Genres Upload File To Request.php
+   Multipart POST /requests/{id}/files so the Excel is stored on the request (same idea as Upload Documents Script).
 
 PM registration
 ---------------
@@ -75,7 +96,11 @@ Export / download
 Export may be async (HTTP 202). If the JSON has no download URL, use PM Collections UI or
 {API_HOST}/collections/23/download/{hash} when you have the hash.
 
+Request data
+------------
+  collection_backup — JSON snapshot from “Save JSON backup to request” (includes records[] with raw data JSON).
+
 Excel
 -----
-Recognized headers (normalized): Country Local Genre Key, Local Genre Name,
-Is Active Local Genre; optional Row Id to match collection row_id.
+Recognized headers (normalized): Local Genre Key (or Country Local Genre Key), Local Genre Name,
+Is Active (or Is Active Local Genre), optional Global Genre, optional Row Id.

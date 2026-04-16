@@ -29,7 +29,7 @@ if (!empty($data) && is_string($data)) {
     $payload = $data;
 }
 
-$requestId = isset($payload['request_id']) ? (int) $payload['request_id'] : 0;
+$requestId = isset($payload['request_id']) ? (int) $payload['request_id'] : 90235;
 $attach = !empty($payload['attach_to_request']);
 $filename = $payload['filename'] ?? ('genres_backup_collection_' . $collectionId . '_' . date('Y-m-d_His') . '.xlsx');
 
