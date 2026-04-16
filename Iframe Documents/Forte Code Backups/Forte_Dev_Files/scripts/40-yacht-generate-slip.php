@@ -532,6 +532,83 @@ function evaluateCondition(
         return false;
     }
 }
+
+/*
+ * Extract <w:body> inner XML from a PhpWord instance (for TemplateProcessor merge).
+ *
+ * @param \PhpOffice\PhpWord\PhpWord $phpWordHandle
+ * @return string
+ */
+function extractDocumentBodyXmlFromPhpWord($phpWordHandle)
+{
+    $objWriter = \PhpOffice\PhpWord\IOFactory::createWriter($phpWordHandle);
+    $fullXml = $objWriter->getWriterPart('Document')->write();
+    $newDataXML = "";
+    foreach (explode("\n", $fullXml) as $dataLine) {
+        $newDataXML .= trim($dataLine);
+    }
+    if (preg_match('%(?i)(?<=<w:body>)[\s|\S]*?(?=</w:body>)%', $newDataXML, $regs)) {
+        return $regs[0];
+    }
+    return '';
+}
+
+/*
+ * Build slip tenders block as native Word table (borders, fonts) from request grid data.
+ * Alternative to Html::addHtml for YQP_SLIP_TENDERS — avoids poor HTML table/CSS support in PHPWord.
+ *
+ * @param (array) $requestData
+ * @return (string) WordprocessingML body fragment
+ */
+function buildTendersSlipWordXml($requestData)
+{
+    if (empty($requestData['YQP_TENDERS']) || $requestData['YQP_TENDERS'] !== 'YES') {
+        return '';
+    }
+    $tenders = isset($requestData['YQP_TENDERS_INFORMATION']) ? $requestData['YQP_TENDERS_INFORMATION'] : [];
+    if (!is_array($tenders)) {
+        return '';
+    }
+
+    $lang = !empty($requestData['YQP_LANGUAGE']) ? $requestData['YQP_LANGUAGE'] : 'EN';
+    $title = ($lang === 'ES') ? 'Embarcaciones' : 'Tenders';
+    $labelTender = ($lang === 'ES') ? 'Embarcación Auxiliar ' : 'Tender Information ';
+
+    $font = array('name' => 'Corbel', 'size' => 10);
+    $fontBold = array('name' => 'Corbel', 'size' => 10, 'bold' => true);
+    $paraLeft = array('alignment' => 'left', 'spaceAfter' => 0);
+
+    $wCol1 = \PhpOffice\PhpWord\Shared\Converter::cmToTwip(6.8);
+    $wCol2 = \PhpOffice\PhpWord\Shared\Converter::cmToTwip(10.2);
+    $wFull = $wCol1 + $wCol2;
+
+    $phpWordHandle = new \PhpOffice\PhpWord\PhpWord();
+    \PhpOffice\PhpWord\Settings::setOutputEscapingEnabled(true);
+    $section = $phpWordHandle->addSection();
+
+    $tableStyle = array(
+        'borderColor' => '000000',
+        'borderSize' => 6,
+        'cellMargin' => 80,
+    );
+    $table = $section->addTable($tableStyle);
+
+    $table->addRow();
+    $cellTitle = $table->addCell($wFull, array('gridSpan' => 2));
+    $cellTitle->addText($title, $fontBold, $paraLeft);
+
+    foreach ($tenders as $t => $row) {
+        $desc = isset($row['YQP_TENDERS_DESCRIPTION']) ? (string) $row['YQP_TENDERS_DESCRIPTION'] : '';
+        $table->addRow();
+        $table->addCell($wCol1)->addText($labelTender . ($t + 1), $font, $paraLeft);
+        $table->addCell($wCol2)->addText($desc, $font, $paraLeft);
+    }
+
+    $bodyBlock = extractDocumentBodyXmlFromPhpWord($phpWordHandle);
+    \PhpOffice\PhpWord\Settings::setOutputEscapingEnabled(false);
+    return $bodyBlock;
+}
+
 /* 
  * Convert HTML to XML
  *
@@ -544,6 +621,11 @@ function evaluateCondition(
 function htmlToXml($variable, $requestData)
 {
     $string = convertVariablesToData($variable);
+    // Native Word table for tenders — same placeholders/collection (HTML + YQP_SLIP_TENDERS), better layout than Html::addHtml
+    if ($string === 'YQP_SLIP_TENDERS') {
+        return buildTendersSlipWordXml($requestData);
+    }
+
     eval("\$value = \$requestData['" . $string . "'];");
     if (!empty($value)) {
         $html = html_entity_decode($value);
@@ -553,20 +635,7 @@ function htmlToXml($variable, $requestData)
         $section = $phpWordHandle->addSection();
         //insert html on document section
         \PhpOffice\PhpWord\Shared\Html::addHtml($section, $html, false, false);
-        $objWriter =  \PhpOffice\PhpWord\IOFactory::createWriter($phpWordHandle);
-        $fullXml = $objWriter->getWriterPart('Document')->write();
-        // Clean Space and Lines RN
-        $dataLines = explode("\n", $fullXml);
-        $newDataXML = "";
-        foreach ($dataLines as $dataLine) {
-            $newDataXML .= trim($dataLine);
-        }
-        // Get body Block XML
-        if (preg_match('%(?i)(?<=<w:body>)[\s|\S]*?(?=</w:body>)%', $newDataXML, $regs)) {
-            $bodyBlock = $regs[0];
-        } else {
-            $bodyBlock = '';
-        }
+        $bodyBlock = extractDocumentBodyXmlFromPhpWord($phpWordHandle);
         \PhpOffice\PhpWord\Settings::setOutputEscapingEnabled(false);
         return $bodyBlock;
     } else {
