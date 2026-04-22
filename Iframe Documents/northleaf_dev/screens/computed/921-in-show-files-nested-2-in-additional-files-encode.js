@@ -1,0 +1,1 @@
+return btoa(JSON.stringify(this.IN_ADDITIONAL_FILES ?? []));

@@ -1,0 +1,70 @@
+# =============================
+RUN apt-get update && apt-get install -y \
+    git \
+    curl \
+    wget \
+    jq \
+    tree \
+    ca-certificates \
+    software-properties-common \
+    build-essential \
+    libmagick++-dev \
+    libpng-dev \
+    libjpeg62-turbo-dev \
+    libfreetype6-dev \
+    pdftk \
+    --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/*
+
+
+# =============================
+# Instalar GD (PHP 7.3)
+# =============================
+RUN docker-php-ext-configure gd \
+    --with-freetype-dir=/usr/include/ \
+    --with-jpeg-dir=/usr/include/ \
+    && docker-php-ext-install gd
+
+
+# =============================
+# Instalar Imagick
+# =============================
+RUN git clone https://github.com/mkoppanen/imagick.git /tmp/imagick && \
+    cd /tmp/imagick && \
+    phpize && \
+    ./configure && \
+    make && make install && \
+    docker-php-ext-enable imagick && \
+    rm -rf /tmp/imagick
+
+
+# =============================
+# Instalar Composer
+# =============================
+# COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
+
+# =============================
+# Instalar librerías PHP
+# =============================
+# WORKDIR /app
+
+RUN composer require \
+    spipu/html2pdf \
+    mikehaertl/php-pdftk \
+    "swiftmailer/swiftmailer:^6.0"
+
+# Download Northleaf PHP Library
+RUN rm -f /Northleaf_PHP_Library.php
+RUN curl -X "GET" \
+  "https://northleaf.dev.cloud.processmaker.net/api/1.0/scripts/67?6" \
+  -H "accept: application/json" \
+  -H "Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOiI0IiwianRpIjoiOTllMmExMTllYzgwYTEyZmJlZWIxMGU2MDMxZGFkZjUyZDNhNjkwMGViNTI0YmI2Yjc5YjZhMTI4NDhkODlhMDExODg1N2E3ZDVjOGYwNWMiLCJpYXQiOjE3NTg1NTM3OTEuNzk0NjU3LCJuYmYiOjE3NTg1NTM3OTEuNzk0NjYsImV4cCI6MTc5MDA4OTc5MS43OTAyODIsInN1YiI6IjEiLCJzY29wZXMiOltdfQ.JXvIjLYhADo9Qygfea87iTDLc17h8XCKTnN1HGLZ1XIue99L0SGd4UIBuDdnQBhRSa3zRxi-M4w_GkRmVd6fyEz1FofW9is6bUjy9fe1eWZ-KY39Ki-Xm36ydk3cJjS9lKYZQz1FRK4knZLdfx8AprOIG5yWNiMmSUC7DjFZhA1ELEsYLFexWQTfttQqIj4qlxuv2EzaQ5dOhN4QD8SqZrB3lZykRQ_3lKRQucDdCfjg9s23omAmbKgpTsJOTM75R6z8ZVdmEIvaAy00xIJVXlYWDGpgyN7Xb3BXZ0Qbur4fc0_j73IUeegzErq23AXAOOdQ5TBKXT4d1pBmaLlSvalVGTiWZ764rLA0RQydEGWso2pFpxfTY-N2s8ut1Ulhg7g-yc3WAfZhxy3TINYvpWPbwXyzxTn1ba7EUdrJOr8bfT8YdvT-uo_t4rLo0J9np9m_51SJJAQzm7yfRJh4zYdQ8-1VsGcPjcIrk9eSPnKmm6miZklaSdA97gEDP3TjropomJKUwNgDMBs-vdYphZyA_Ern42z-dCwqDkmRKy2DQVSsU071eHYUBZhP9uMZsUQepdda1c94WahQJKIBLV3WhMlaNxxLH62KwDxvm-xfP0SFsGFnkYwT44PPJ6geUL9UrsYRwzYPAPdyY4SsSBCtHVSixuRYxrqjJIhwT-4" | \
+  jq -r ".code" > /Northleaf_PHP_Library.php
+
+# =============================
+# Verificación (opcional)
+# =============================
+RUN php -m | grep -E "gd|imagick"
+
+CMD ["php", "-a"]

@@ -1,0 +1,1 @@
+return this.vendorInformation.IN_FX_REQUIRED;

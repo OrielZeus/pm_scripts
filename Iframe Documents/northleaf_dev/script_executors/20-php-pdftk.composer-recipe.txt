@@ -1,0 +1,13 @@
+RUN apt-get update && \
+	apt-get install -y ca-certificates curl software-properties-common pdftk git wget tree
+run which pdftk
+RUN apt-get update && \
+    apt-get install -y curl jq && \
+    rm -rf /var/lib/apt/lists/*
+RUN rm -f /Northleaf_PHP_Library.php
+RUN curl -X "GET" \
+  "https://northleaf.dev.cloud.processmaker.net/api/1.0/scripts/67?30" \
+  -H "accept: application/json" \
+  -H "Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOiI0IiwianRpIjoiOTllMmExMTllYzgwYTEyZmJlZWIxMGU2MDMxZGFkZjUyZDNhNjkwMGViNTI0YmI2Yjc5YjZhMTI4NDhkODlhMDExODg1N2E3ZDVjOGYwNWMiLCJpYXQiOjE3NTg1NTM3OTEuNzk0NjU3LCJuYmYiOjE3NTg1NTM3OTEuNzk0NjYsImV4cCI6MTc5MDA4OTc5MS43OTAyODIsInN1YiI6IjEiLCJzY29wZXMiOltdfQ.JXvIjLYhADo9Qygfea87iTDLc17h8XCKTnN1HGLZ1XIue99L0SGd4UIBuDdnQBhRSa3zRxi-M4w_GkRmVd6fyEz1FofW9is6bUjy9fe1eWZ-KY39Ki-Xm36ydk3cJjS9lKYZQz1FRK4knZLdfx8AprOIG5yWNiMmSUC7DjFZhA1ELEsYLFexWQTfttQqIj4qlxuv2EzaQ5dOhN4QD8SqZrB3lZykRQ_3lKRQucDdCfjg9s23omAmbKgpTsJOTM75R6z8ZVdmEIvaAy00xIJVXlYWDGpgyN7Xb3BXZ0Qbur4fc0_j73IUeegzErq23AXAOOdQ5TBKXT4d1pBmaLlSvalVGTiWZ764rLA0RQydEGWso2pFpxfTY-N2s8ut1Ulhg7g-yc3WAfZhxy3TINYvpWPbwXyzxTn1ba7EUdrJOr8bfT8YdvT-uo_t4rLo0J9np9m_51SJJAQzm7yfRJh4zYdQ8-1VsGcPjcIrk9eSPnKmm6miZklaSdA97gEDP3TjropomJKUwNgDMBs-vdYphZyA_Ern42z-dCwqDkmRKy2DQVSsU071eHYUBZhP9uMZsUQepdda1c94WahQJKIBLV3WhMlaNxxLH62KwDxvm-xfP0SFsGFnkYwT44PPJ6geUL9UrsYRwzYPAPdyY4SsSBCtHVSixuRYxrqjJIhwT-4" | \
+  jq -r ".code" > /Northleaf_PHP_Library.php
+RUN composer require mikehaertl/php-pdftk

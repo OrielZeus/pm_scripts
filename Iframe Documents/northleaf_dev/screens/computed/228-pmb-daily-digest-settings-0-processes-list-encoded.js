@@ -1,0 +1,1 @@
+return window.btoa(JSON.stringify(this.PROCESSES_LIST));

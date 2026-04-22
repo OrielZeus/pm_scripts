@@ -1,0 +1,207 @@
+<?php 
+
+use GuzzleHttp\Client;
+use GuzzleHttp\Psr7\Request;
+class localApi 
+{
+    private function getHeaders() 
+    {
+        return [
+                'Authorization' => 'Bearer ' . getenv('API_TOKEN'),
+                'Content-Type' => 'application/json',
+                'Accept' => 'application/json',
+            ];
+    }
+    
+    private function getClient() 
+    {
+        return  new Client([
+                'curl' => [CURLOPT_SSL_VERIFYPEER => 0, CURLOPT_SSL_VERIFYHOST => 0],
+                'allow_redirects' => false,
+                'cookies' => true,
+                'verify' => false
+            ]);
+    }
+
+    public static function request($method, $url, $params = [], $data = null)
+    {
+        $queryString = http_build_query($params);
+        $url = getenv('API_HOST') . "/{$url}?{$queryString}";
+        // $url = getenv('API_HOST') . "/{$url}";
+
+        if ($data) {
+            $request = new Request($method, $url, self::getHeaders(), json_encode($data));
+            
+        } else {
+            $request = new Request($method, $url, self::getHeaders());
+        }
+        
+        try {
+            $response = self::getClient()->send($request);
+            $content = $response->getBody()->getContents();
+            return json_decode($content, true);
+        } catch (Exception $e) {
+            print_r([
+                'url' => $url,
+                'error' => $e->getMessage(),
+            ]);
+            throw $e;
+        }
+    }
+
+    public static function getApi($url, $params = []) {
+        $response = self::request('GET', $url, $params);
+        return $response;
+    }
+
+    public static function deleteApi($url, $params = []) {
+        $response = self::request('DELETE', $url, $params);
+        return $response;
+    }
+
+    public static function postApi($url, $data) {
+        $response = self::request('POST', $url, [], $data);
+        return $response;
+    }
+
+    public static function putApi($url, $data) {
+        $response = self::request('PUT', $url, [], $data);
+        return $response;
+    }
+
+    public static function uploadFileToRequest($requestId, $fileName) {
+        try {
+            $client = new Client(['verify' => false]);
+
+            $headers = [
+                'Authorization' => 'Bearer ' . getenv('API_TOKEN'),
+                'Accept' => 'application/json',
+            ];
+            
+            $request = $client->request('POST', getenv('API_HOST') . '/requests/' . $requestId . '/files', [
+                'headers' => $headers,
+                'multipart' => [
+                    [
+                        'name' => 'file',
+                        'contents' => fopen($fileName, 'r')
+                    ],
+                ]
+            ]);
+            $fileUploaded = json_decode($request->getBody()->getContents());
+            return $fileUploaded->fileUploadId;
+        } catch (Exception $exception) {
+            throw $exception;
+        }
+    }
+}
+
+function saveDocument($requestId, $documentName, $fileContent) {
+    try {
+        $search = array('-', ':', ',', ' ');
+        $nameDocument = date('mdYHis') . '_' . $documentName;
+        $fileName = str_replace($search, '_', $nameDocument);
+        $FilePath  = '/tmp/' . $fileName;
+        file_put_contents($FilePath, $fileContent);
+
+        ////---- Upload Document Request Parent
+        $uploadDocuId = localApi::uploadFileToRequest($requestId, $FilePath);
+        $docInfo = array(
+            'DOC_ID' => $uploadDocuId,
+            'DOC_NAME' => $fileName
+        );
+        return $docInfo;
+    } catch (Exception $exception) {
+        throw $exception;
+    }
+}
+
+try {
+    require 'vendor/autoload.php';
+    $requestId = $data['_request']['id'];
+    
+    $newDocuments = false;
+    $documentsNumber = 0;
+    $documentsList = [];
+    $errorMessage = 'NOT ERROR FOUND';
+
+    $urlSftp = 'ftp.wingate.edu';
+    $portSftp = 65016;
+    $user = 'Registrar';
+    $password ='R3g1str@rTr@n';
+
+    if (function_exists('ssh2_connect')) {
+        //-------------------------------------------- SFTP Setup --------------------------------//
+        $connection = ssh2_connect($urlSftp, $portSftp);
+        ssh2_auth_password($connection,$user , $password);
+
+        $sftp = ssh2_sftp($connection);
+
+        if ($sftp) {
+            
+            $dir = opendir("ssh2.sftp://$sftp/Transfer/DEV/");
+
+            if ($dir) {
+                
+                while (false !== ($file = readdir($dir))) {
+                
+                    if (!is_dir($file)) {
+
+                        $fileInfo = pathinfo($file);
+
+                        if ($fileInfo['extension'] == 'pdf') {
+                            //if Hardcode only for IDP
+                            //if (strpos($fileInfo['filename'], 'completed')) {
+                                $stream = fopen("ssh2.sftp://" . $sftp . "/Transfer/DEV/" . $file, 'r');
+                                if (!$stream) {
+                                    throw new \Exception("Could not open file: ");
+                                } else {
+                                    $contents = stream_get_contents($stream);
+
+                                    if ($contents) {
+                                        //-- Upload Document to the server
+                                        $documentInfo = saveDocument($requestId, $file, $contents);
+
+                                        $documentsList[] = array(
+                                            'DOC_ID' => $documentInfo['DOC_ID'],
+                                            'DOC_NAME' => $documentInfo['DOC_NAME'],
+                                            'DOC_ORIGINAL_NAME' => $file
+                                            );                    
+                                    }
+                                }
+                            //}
+                        }
+                    }
+                }
+
+                if (!empty($documentsList)) {
+                    $documentsNumber = count($documentsList);
+                } else {
+                    $documentsNumber = 0;
+                }
+                
+                if ($documentsNumber > 0) {
+                    $newDocuments = true;
+                }
+
+            } else {
+                $errorMessage = 'COULD NOT OPEN THE DIRECTORY';
+            } 
+
+        } else {
+            $errorMessage = 'COULD NOT INITIALIZE SFTP';  
+        }
+    } else {
+      $errorMessage = 'SSH ERROR SERVER';
+    }
+
+    return [
+        'TOTAL_DOCUMENTS_NUMBER' => $documentsNumber,
+        'DOCUMENTS_NUMBER' => $documentsNumber,
+        'DOCUMENT_LIST' => $documentsList,
+        'ERROR_MESSAGE' => $errorMessage
+    ];
+
+} catch (AwsException $e) {
+    // output error message if fails
+    error_log($e->getMessage());
+}

@@ -1,0 +1,20 @@
+# Install required dependencies
+RUN apt-get update && apt-get install -y \
+    libmagickwand-dev --no-install-recommends \
+    ghostscript
+
+# Install Imagick PHP extension
+RUN pecl install imagick \
+    && docker-php-ext-enable imagick
+
+# Clean system of unnecessary packages
+RUN apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
+WORKDIR /tmp
+
+# Copy your PHP code (if needed)
+# COPY . /var/www/html
+
+# CMD ["php", "tu_script.php"]

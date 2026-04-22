@@ -1,0 +1,1 @@
+return this._parent.PE_UPLOAD_BEAT_UP_NA;

@@ -1,0 +1,14 @@
+# 1. Install dependencies of GD (libpng, libjpeg, libfreetype)
+RUN apt-get update && apt-get install -y \
+    libfreetype6-dev \
+    libjpeg62-turbo-dev \
+    libpng-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# 2. Set and Install GD Extensions
+# Note: In PHP 7.3 use the flags --with-freetype-dir y --with-jpeg-dir
+RUN docker-php-ext-configure gd --with-freetype-dir=/usr/include/ --with-jpeg-dir=/usr/include/ \
+    && docker-php-ext-install gd
+
+# 3. Install mPDF
+RUN composer require mpdf/mpdf

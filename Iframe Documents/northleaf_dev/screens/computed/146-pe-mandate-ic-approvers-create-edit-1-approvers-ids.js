@@ -1,0 +1,2 @@
+const MIA_APPROVER_USERS_IDS = this.MIA_APPROVER_USERS_OBJECT.map(user => user.id);
+return MIA_APPROVER_USERS_IDS

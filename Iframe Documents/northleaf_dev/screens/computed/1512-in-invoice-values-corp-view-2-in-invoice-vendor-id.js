@@ -1,0 +1,1 @@
+return this.vendorInformation["0"].VENDOR_SYSTEM_ID_ACTG;

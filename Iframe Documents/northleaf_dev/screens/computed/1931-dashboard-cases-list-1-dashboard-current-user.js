@@ -1,0 +1,1 @@
+return document.querySelector("meta[name='user-id']").content;

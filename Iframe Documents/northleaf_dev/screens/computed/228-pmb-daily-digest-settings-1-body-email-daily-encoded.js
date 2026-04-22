@@ -1,0 +1,1 @@
+return window.btoa(JSON.stringify(this.BODY_EMAIL_DAILY_REPORT));

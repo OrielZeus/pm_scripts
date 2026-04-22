@@ -25,6 +25,8 @@
  *   export_format: auto | zip | tar_gz | json
  *   export_destination: browser | request
  *   request_id, request_file_data_name — same as Forte batch when destination=request
+ *   export_root_slug — optional override for asset archive root folder name (default: tenant from api_base host,
+ *       e.g. northleaf.dev.cloud… → northleaf_dev; production host without ".dev." → northleaf).
  *
  * Import / apply to another environment is not implemented here; use PM native import or extend later.
  */
@@ -38,7 +40,7 @@ function pexp_unnest_request_data(array &$data): void
     $controlKeys = ['action', 'draw', 'start', 'length', 'page', 'per_page', 'mode', 'process_id',
         'include_subprocesses', 'max_subprocess_depth', 'export_format', 'export_destination',
         'request_id', 'request_file_data_name', 'api_base', 'bearer_token', 'api_token', 'api_sql_path',
-        'entity', 'target', 'return_format', 'api_host_dev', 'api_token_dev', 'api_host_prod', 'api_token_prod',
+        'entity', 'target', 'export_root_slug', 'return_format', 'api_host_dev', 'api_token_dev', 'api_host_prod', 'api_token_prod',
         'production_api_host', 'production_api_token', 'PM_PROD_API_HOST', 'PM_PROD_API_TOKEN'];
     foreach (['data', 'payload', 'formData', 'body'] as $nest) {
         if (!isset($data[$nest]) || !is_array($data[$nest])) {
@@ -455,6 +457,118 @@ function pexp_language_extension(string $language): string
 }
 
 /**
+ * Normalize paths inside zip/tar: forward slashes only, relative (no leading / or \),
+ * collapse repeats, strip ".." safely, remove NUL. Prevents broken multi-segment folder
+ * trees on Windows extractors when separators or prefixes are inconsistent.
+ */
+function pexp_normalize_archive_entry_name(string $path): string
+{
+    $path = str_replace('\\', '/', $path);
+    $path = str_replace("\0", '', $path);
+    $path = preg_replace('#^[\\/]+#', '', $path);
+    $path = preg_replace('#/+#', '/', $path);
+    $parts = explode('/', $path);
+    $safe = [];
+    foreach ($parts as $part) {
+        if ($part === '' || $part === '.') {
+            continue;
+        }
+        if ($part === '..') {
+            if ($safe !== []) {
+                array_pop($safe);
+            }
+            continue;
+        }
+        $safe[] = $part;
+    }
+
+    return implode('/', $safe);
+}
+
+/**
+ * Extract hostname from API base URL (scheme optional).
+ */
+function pexp_extract_hostname_from_api_base(string $hostOrUrl): string
+{
+    $s = trim($hostOrUrl);
+    if ($s === '') {
+        return '';
+    }
+    if (strpos($s, '://') === false) {
+        $s = 'https://' . $s;
+    }
+    $p = parse_url($s);
+    $host = isset($p['host']) ? (string) $p['host'] : '';
+
+    return strtolower($host);
+}
+
+/**
+ * First DNS label (tenant), e.g. northleaf from northleaf.dev.cloud.processmaker.net.
+ */
+function pexp_tenant_label_from_hostname(string $hostname): string
+{
+    if ($hostname === '') {
+        return '';
+    }
+    $labels = explode('.', $hostname);
+    $first = isset($labels[0]) ? strtolower((string) $labels[0]) : '';
+    if ($first === 'www' && isset($labels[1])) {
+        $first = strtolower((string) $labels[1]);
+    }
+
+    return $first;
+}
+
+function pexp_hostname_implies_dev_environment(string $hostname): bool
+{
+    return $hostname !== '' && strpos($hostname, '.dev.') !== false;
+}
+
+/**
+ * Slug for host label (northleaf → northleaf); allows underscores in override only via full export_root_slug.
+ */
+function pexp_slugify_host_label(string $label): string
+{
+    $t = @iconv('UTF-8', 'ASCII//TRANSLIT', $label);
+    if ($t === false) {
+        $t = $label;
+    }
+    $t = strtolower((string) $t);
+    $t = preg_replace('/[^a-z0-9_-]+/', '-', $t);
+    $t = trim((string) $t, '-');
+
+    return $t !== '' ? $t : '';
+}
+
+/**
+ * Root folder name for scripts/screens/export_chunk/export_all archives (replaces forte_dev_files / forte_prod_files).
+ *
+ * Uses api_base hostname: tenant = first label; suffix _dev when hostname contains ".dev.".
+ * Optional export_root_slug overrides auto-detection (already slug-safe string).
+ *
+ * @return non-empty-string
+ */
+function pexp_resolve_export_asset_root_folder(string $apiHost, array $data): string
+{
+    $override = isset($data['export_root_slug']) ? trim((string) $data['export_root_slug']) : '';
+    if ($override !== '') {
+        $clean = pexp_slugify_host_label(str_replace('\\', '/', $override));
+        if ($clean !== '') {
+            return $clean;
+        }
+    }
+
+    $hostname = pexp_extract_hostname_from_api_base($apiHost);
+    $tenant = pexp_slugify_host_label(pexp_tenant_label_from_hostname($hostname));
+    if ($tenant === '') {
+        return 'processmaker_export';
+    }
+
+    return pexp_hostname_implies_dev_environment($hostname) ? ($tenant . '_dev') : $tenant;
+}
+
+/**
  * Computed properties of type javascript → separate .js files (same idea as Forte batch).
  *
  * @return array<int,array{path:string,contents:string}>
@@ -648,8 +762,7 @@ function pexp_build_zip_binary(array $files): ?string
         if (!is_array($f)) {
             continue;
         }
-        $name = str_replace('\\', '/', (string) ($f['path'] ?? ''));
-        $name = ltrim($name, '/');
+        $name = pexp_normalize_archive_entry_name((string) ($f['path'] ?? ''));
         if ($name === '') {
             continue;
         }
@@ -666,8 +779,7 @@ function pexp_build_zip_binary(array $files): ?string
 
 function pexp_ustar_header(string $name, int $size, int $mtime): string
 {
-    $name = str_replace('\\', '/', $name);
-    $name = ltrim($name, '/');
+    $name = pexp_normalize_archive_entry_name($name);
     if (strlen($name) > 99) {
         $name = substr($name, -99);
     }
@@ -700,7 +812,7 @@ function pexp_ustar_header(string $name, int $size, int $mtime): string
 
 function pexp_ustar_one_entry(string $path, string $contents): string
 {
-    $path = str_replace('\\', '/', ltrim($path, '/'));
+    $path = pexp_normalize_archive_entry_name($path);
     if ($path === '') {
         return '';
     }
@@ -717,8 +829,7 @@ function pexp_build_ustar_tar(array $files): string
         if (!is_array($f)) {
             continue;
         }
-        $p = str_replace('\\', '/', (string) ($f['path'] ?? ''));
-        $p = ltrim($p, '/');
+        $p = pexp_normalize_archive_entry_name((string) ($f['path'] ?? ''));
         if ($p === '') {
             continue;
         }
@@ -1761,8 +1872,7 @@ function forte_build_files_for_chunk(string $root, string $entity, array $rows):
  */
 function forte_ustar_header(string $name, int $size, int $mtime): string
 {
-    $name = str_replace('\\', '/', $name);
-    $name = ltrim($name, '/');
+    $name = pexp_normalize_archive_entry_name($name);
     if (strlen($name) > 99) {
         $name = substr($name, -99);
     }
@@ -1800,7 +1910,7 @@ function forte_ustar_header(string $name, int $size, int $mtime): string
  */
 function forte_ustar_one_entry(string $path, string $contents): string
 {
-    $path = str_replace('\\', '/', ltrim($path, '/'));
+    $path = pexp_normalize_archive_entry_name($path);
     if ($path === '') {
         return '';
     }
@@ -1821,8 +1931,7 @@ function forte_build_ustar_tar(array $files): string
         if (!is_array($f)) {
             continue;
         }
-        $p = str_replace('\\', '/', (string) ($f['path'] ?? ''));
-        $p = ltrim($p, '/');
+        $p = pexp_normalize_archive_entry_name((string) ($f['path'] ?? ''));
         if ($p === '') {
             continue;
         }
@@ -2002,8 +2111,7 @@ function forte_build_zip_binary(array $files): ?string
         if (!is_array($f)) {
             continue;
         }
-        $name = str_replace('\\', '/', (string) ($f['path'] ?? ''));
-        $name = ltrim($name, '/');
+        $name = pexp_normalize_archive_entry_name((string) ($f['path'] ?? ''));
         if ($name === '') {
             continue;
         }
@@ -2280,8 +2388,7 @@ function pexp_forte_asset_dispatch(array $data, string $host, string $token, str
                     if (!is_array($f)) {
                         continue;
                     }
-                    $name = str_replace('\\', '/', (string) ($f['path'] ?? ''));
-                    $name = ltrim($name, '/');
+                    $name = pexp_normalize_archive_entry_name((string) ($f['path'] ?? ''));
                     if ($name === '') {
                         continue;
                     }
@@ -2740,7 +2847,7 @@ if ($host === '' || $token === '') {
 }
 
 $rootFolder = 'pm_process_export';
-$rootFolderForte = $target === 'prod' ? 'forte_prod_files' : 'forte_dev_files';
+$rootFolderForte = pexp_resolve_export_asset_root_folder($host, $data);
 
 try {
     if ($action === 'counts') {
@@ -2768,6 +2875,7 @@ try {
                 'target' => $target,
                 'mode' => $mode,
                 'root_folder' => $rootFolder,
+                'asset_root_folder' => $rootFolderForte,
                 'counts' => [
                     'scripts' => forte_sql_first_cnt($c1),
                     'screens' => forte_sql_first_cnt($c2),
@@ -2786,6 +2894,7 @@ try {
             'target' => $target,
             'mode' => $mode,
             'root_folder' => $rootFolder,
+            'asset_root_folder' => $rootFolderForte,
             'counts' => [
                 'scripts' => $tScripts,
                 'screens' => $tScreens,

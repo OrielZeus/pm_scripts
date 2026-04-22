@@ -1,0 +1,1 @@
+return this._parent.PE_UPLOAD_BLACK_HAT_NA;

@@ -1,0 +1,160 @@
+{
+    "id": 1160,
+    "uuid": "a198fcfd-2a3e-4d89-8c03-f4d8350a49f6",
+    "screen_category_id": "1",
+    "title": "components Vue iframe example minimal examplevueiframescreen",
+    "description": "Empareja example-screen/example-vue-iframe-screen.php: EXAMPLE_TITLE llega por ?data= (IframeGrid) o por computed IFRAME_INPUT_JSON si usas tarea Script + variable iframe. Publica el Script y usa el mismo slug que scriptSlug en el calc (calc/example-iframe-grid-vue-example.js). EXAMPLE_ITEMS solo por URL si amplías el objeto data.",
+    "type": "FORM",
+    "config": [
+        {
+            "name": "components Vue iframe example minimal examplevueiframescreen",
+            "items": [
+                {
+                    "uuid": "da9d4879-861a-416f-877c-d2eca2e03a06",
+                    "label": "Rich Text",
+                    "config": {
+                        "icon": "fas fa-pencil-ruler",
+                        "name": "form_html_viewer",
+                        "label": null,
+                        "content": "<p>{{{IframeGridHtml}}}</p>",
+                        "interactive": true,
+                        "renderVarHtml": true
+                    },
+                    "component": "FormHtmlViewer",
+                    "inspector": [
+                        {
+                            "type": "FormTextArea",
+                            "field": "content",
+                            "config": {
+                                "rows": 5,
+                                "label": "Content",
+                                "value": null,
+                                "helper": "The HTML text to display"
+                            }
+                        },
+                        {
+                            "type": "FormCheckbox",
+                            "field": "renderVarHtml",
+                            "config": {
+                                "label": "Render HTML from a Variable",
+                                "value": null,
+                                "helper": null
+                            }
+                        },
+                        {
+                            "type": "FormInput",
+                            "field": "conditionalHide",
+                            "config": {
+                                "label": "Visibility Rule",
+                                "helper": "This control is hidden until this expression is true"
+                            }
+                        },
+                        {
+                            "type": "DeviceVisibility",
+                            "field": "deviceVisibility",
+                            "config": {
+                                "label": "Device Visibility",
+                                "helper": "This control is hidden until this expression is true"
+                            }
+                        },
+                        {
+                            "type": "FormInput",
+                            "field": "customFormatter",
+                            "config": {
+                                "label": "Custom Format String",
+                                "helper": "Use the Mask Pattern format <br> Date ##/##/#### <br> SSN ###-##-#### <br> Phone (###) ###-####",
+                                "validation": null
+                            }
+                        },
+                        {
+                            "type": "FormInput",
+                            "field": "customCssSelector",
+                            "config": {
+                                "label": "CSS Selector Name",
+                                "helper": "Use this in your custom css rules",
+                                "validation": "regex: [-?[_a-zA-Z]+[_-a-zA-Z0-9]*]"
+                            }
+                        },
+                        {
+                            "type": "FormInput",
+                            "field": "ariaLabel",
+                            "config": {
+                                "label": "Aria Label",
+                                "helper": "Attribute designed to help assistive technology (e.g. screen readers) attach a label"
+                            }
+                        },
+                        {
+                            "type": "FormInput",
+                            "field": "tabindex",
+                            "config": {
+                                "label": "Tab Order",
+                                "helper": "Order in which a user will move focus from one control to another by pressing the Tab key",
+                                "validation": "regex: [0-9]*"
+                            }
+                        },
+                        {
+                            "type": "EncryptedConfig",
+                            "field": "encryptedConfig",
+                            "config": {
+                                "label": "Encrypted",
+                                "helper": null
+                            }
+                        }
+                    ],
+                    "editor-control": "FormHtmlEditor",
+                    "editor-component": "FormHtmlEditor"
+                }
+            ],
+            "order": 1
+        }
+    ],
+    "computed": [
+        {
+            "id": 1,
+            "name": "IframeGridHtml",
+            "type": "javascript",
+            "order": 1,
+            "byPass": false,
+            "formula": "var scriptSlug = 'example-vue-iframe-screen';\nvar data = {\n  ExampleTitle: (this.ExampleTitle || '') + ''\n};\nvar jsonData = JSON.stringify(data);\nvar encodedData = encodeURIComponent(jsonData);\nvar screenHeight = 1200;\nif (typeof top !== 'undefined' && typeof top.innerHeight !== 'undefined') {\n  screenHeight = top.innerHeight - 50;\n}\nvar code = '<div class=\"pm-iframe-grid-host\" style=\"margin:0;padding:0;\"><style>.pm-iframe-grid-host .iframe-container{background:url(/public-files/loadingIMG.gif) center center no-repeat;min-height:200px}</style><div class=\"iframe-container\"><iframe id=\"iframe-psTools\" src=\"/api/1.0/pstools/script/' + scriptSlug + '?data=' + encodedData + '\" frameborder=\"0\" style=\"overflow:hidden;overflow-x:hidden;overflow-y:hidden;height:' + screenHeight + 'px;width:100%;border:0;\"></iframe></div></div>';\nreturn code;",
+            "property": "IframeGridHtml"
+        },
+        {
+            "id": 2,
+            "name": "IframeInputJson",
+            "type": "javascript",
+            "order": 2,
+            "byPass": false,
+            "formula": "var o = {\n  ExampleTitle: this.ExampleTitle || ''\n};\ntry {\n  return JSON.stringify(o);\n} catch (e) {\n  return '{}';\n}",
+            "property": "IframeInputJson"
+        },
+        {
+            "id": 3,
+            "name": "ExampleRowsJsonFromIframe",
+            "type": "javascript",
+            "order": 3,
+            "byPass": false,
+            "formula": "void this.IframeGridHtml;\nvoid this.ExampleTitle;\n\nfunction __pmResolveIframePsTools() {\n  var roots = [];\n  try {\n    roots.push(document);\n  } catch (e0) {}\n  try {\n    if (typeof window !== 'undefined' && window.parent && window.parent.document) {\n      roots.push(window.parent.document);\n    }\n  } catch (e1) {}\n  try {\n    if (\n      typeof window !== 'undefined' &&\n      window.top &&\n      window.top.document &&\n      window.top.document !== document\n    ) {\n      roots.push(window.top.document);\n    }\n  } catch (e2) {}\n  var id = 'iframe-psTools';\n  for (var i = 0; i < roots.length; i++) {\n    var d = roots[i];\n    if (!d) {\n      continue;\n    }\n    var f = d.getElementById(id);\n    if (f && f.tagName === 'IFRAME') {\n      return f;\n    }\n    if (d.querySelector) {\n      var q = d.querySelector('iframe#' + id);\n      if (q) {\n        return q;\n      }\n    }\n  }\n  return null;\n}\n\nvar raw = '';\nvar frame = __pmResolveIframePsTools();\ntry {\n  if (frame) {\n    var innerDoc = frame.contentDocument || (frame.contentWindow && frame.contentWindow.document);\n    if (innerDoc) {\n      var el = innerDoc.getElementById('iframe-EXAMPLE_ROWS_JSON');\n      if (el) {\n        var v = el.value;\n        if (v !== undefined && v !== null) {\n          raw = String(v);\n        }\n      }\n    }\n  }\n} catch (e3) {}\n\nif (!raw) {\n  try {\n    if (typeof $ !== 'undefined' && $('#iframe-psTools').length) {\n      var jqVal = $('#iframe-psTools').contents().find('#iframe-EXAMPLE_ROWS_JSON').val();\n      raw = jqVal != null ? String(jqVal) : '';\n    }\n  } catch (e4) {}\n}\n\nreturn raw;",
+            "property": "ExampleRowsJsonFromIframe"
+        },
+        {
+            "id": 4,
+            "name": "ExampleRowsParsedFromIframe",
+            "type": "javascript",
+            "order": 4,
+            "byPass": false,
+            "formula": "void this.IframeGridHtml;\nvoid this.ExampleTitle;\n\nfunction __pmResolveIframePsTools() {\n  var roots = [];\n  try {\n    roots.push(document);\n  } catch (e0) {}\n  try {\n    if (typeof window !== 'undefined' && window.parent && window.parent.document) {\n      roots.push(window.parent.document);\n    }\n  } catch (e1) {}\n  try {\n    if (\n      typeof window !== 'undefined' &&\n      window.top &&\n      window.top.document &&\n      window.top.document !== document\n    ) {\n      roots.push(window.top.document);\n    }\n  } catch (e2) {}\n  var id = 'iframe-psTools';\n  for (var i = 0; i < roots.length; i++) {\n    var d = roots[i];\n    if (!d) {\n      continue;\n    }\n    var f = d.getElementById(id);\n    if (f && f.tagName === 'IFRAME') {\n      return f;\n    }\n    if (d.querySelector) {\n      var q = d.querySelector('iframe#' + id);\n      if (q) {\n        return q;\n      }\n    }\n  }\n  return null;\n}\n\nvar raw = '';\nvar frame = __pmResolveIframePsTools();\ntry {\n  if (frame) {\n    var innerDoc = frame.contentDocument || (frame.contentWindow && frame.contentWindow.document);\n    if (innerDoc) {\n      var el = innerDoc.getElementById('iframe-EXAMPLE_ROWS_JSON');\n      if (el) {\n        var v = el.value;\n        if (v !== undefined && v !== null) {\n          raw = String(v);\n        }\n      }\n    }\n  }\n} catch (e3) {}\n\nif (!raw) {\n  try {\n    if (typeof $ !== 'undefined' && $('#iframe-psTools').length) {\n      var jqVal = $('#iframe-psTools').contents().find('#iframe-EXAMPLE_ROWS_JSON').val();\n      raw = jqVal != null ? String(jqVal) : '';\n    }\n  } catch (e4) {}\n}\n\nif (!raw) {\n  return [];\n}\ntry {\n  var parsed = JSON.parse(raw);\n  return Array.isArray(parsed) ? parsed : [];\n} catch (e5) {\n  return [];\n}",
+            "property": "ExampleRowsParsedFromIframe"
+        }
+    ],
+    "custom_css": null,
+    "created_at": "2026-04-21T15:15:15+00:00",
+    "updated_at": "2026-04-21T15:52:27+00:00",
+    "status": "ACTIVE",
+    "key": null,
+    "watchers": [],
+    "translations": null,
+    "is_template": 0,
+    "asset_type": null,
+    "is_default": 0,
+    "projects": "[]"
+}

@@ -1,0 +1,1 @@
+return this.vendorInformation["0"].EXPENSE_VENDOR_ADDRESS;

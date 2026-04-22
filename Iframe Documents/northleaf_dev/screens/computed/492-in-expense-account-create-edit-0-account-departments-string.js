@@ -1,0 +1,1 @@
+return this.ACCOUNT_DEPARTMENTS.join(", ");

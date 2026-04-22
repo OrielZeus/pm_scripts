@@ -1,0 +1,1 @@
+return this.ECA_amount;

@@ -1,0 +1,5 @@
+RUN composer require aws/aws-sdk-php:3.226.0 &&\
+apt-get update && \
+     apt-get install -y \
+         libzip-dev \
+         && docker-php-ext-install zip

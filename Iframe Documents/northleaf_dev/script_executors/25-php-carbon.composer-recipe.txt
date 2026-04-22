@@ -1,0 +1,11 @@
+RUN composer require nesbot/carbon
+RUN composer require setasign/fpdf
+RUN composer require setasign/fpdi
+RUN composer require xthiago/pdf-version-converter dev-master
+RUN apt-get -y update && apt-get -y install ghostscript
+RUN composer require smalot/pdfparser
+RUN apt-get update && \
+    apt-get install -y libmagickwand-dev && \
+    pecl install imagick && \
+    docker-php-ext-enable imagick
+RUN composer require smalot/pdfparser

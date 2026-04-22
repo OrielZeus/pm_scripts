@@ -1,0 +1,1 @@
+return encodeURIComponent(JSON.stringify(this.others));

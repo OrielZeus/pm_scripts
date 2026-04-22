@@ -1,0 +1,1 @@
+return this.user_validation_result.originial_group_member_list;

@@ -1,0 +1,1 @@
+return this.remarks_input;

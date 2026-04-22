@@ -1,0 +1,5 @@
+RUN composer require aws/aws-sdk-php:3.226.0
+RUN apt-get update && \
+    apt-get install -y git libssh2-1 libssh2-1-dev && \
+    pecl install ssh2 && \
+    docker-php-ext-enable ssh2
