@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" id="Definitions_RFP_V2_DONATIONS" targetNamespace="http://processmaker.com/schema/bpmn">
+  <bpmn:process id="Process_RFP_V2_DONATIONS" name="RFP V2 - DONATIONS - OPTIMIZED V2" isExecutable="true">
+    <bpmn:startEvent id="StartEvent_1" name="Start Event">
+      <bpmn:outgoing>Flow_1</bpmn:outgoing>
+    </bpmn:startEvent>
+
+    <bpmn:scriptTask id="Task_GetRequestorInfo" name="Retrieve Requestor Information">
+      <bpmn:incoming>Flow_1</bpmn:incoming>
+      <bpmn:outgoing>Flow_2</bpmn:outgoing>
+    </bpmn:scriptTask>
+
+    <bpmn:userTask id="Task_RequestorForm" name="Accomplish Request for Payment Form">
+      <bpmn:incoming>Flow_2</bpmn:incoming>
+      <bpmn:incoming>Flow_MoreInfoToRequestor</bpmn:incoming>
+      <bpmn:outgoing>Flow_3</bpmn:outgoing>
+    </bpmn:userTask>
+
+    <bpmn:scriptTask id="Task_GetNextApprover" name="Get Next Approver">
+      <bpmn:incoming>Flow_3</bpmn:incoming>
+      <bpmn:outgoing>Flow_4</bpmn:outgoing>
+    </bpmn:scriptTask>
+
+    <bpmn:exclusiveGateway id="Gateway_HasNoError" name="No Error?">
+      <bpmn:incoming>Flow_4</bpmn:incoming>
+      <bpmn:outgoing>Flow_NoError</bpmn:outgoing>
+      <bpmn:outgoing>Flow_WithError</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <bpmn:serviceTask id="Task_NotifyError" name="Inform Requestor of Error">
+      <bpmn:incoming>Flow_WithError</bpmn:incoming>
+      <bpmn:outgoing>Flow_ErrorBackToRequestor</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:serviceTask id="Task_NotifyApprover" name="Inform Approver of Pending Approvals">
+      <bpmn:incoming>Flow_NoError</bpmn:incoming>
+      <bpmn:incoming>Flow_NextApproverNotify</bpmn:incoming>
+      <bpmn:outgoing>Flow_5</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:userTask id="Task_ApproverReview" name="Review RFP Requests">
+      <bpmn:incoming>Flow_5</bpmn:incoming>
+      <bpmn:outgoing>Flow_6</bpmn:outgoing>
+    </bpmn:userTask>
+
+    <bpmn:exclusiveGateway id="Gateway_ApproverDecision" name="Approver Decision">
+      <bpmn:incoming>Flow_6</bpmn:incoming>
+      <bpmn:outgoing>Flow_Rejected</bpmn:outgoing>
+      <bpmn:outgoing>Flow_RequestMoreInfo</bpmn:outgoing>
+      <bpmn:outgoing>Flow_Approved</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <bpmn:serviceTask id="Task_NotifyRejected" name="Inform Requestor of Rejected RFP">
+      <bpmn:incoming>Flow_Rejected</bpmn:incoming>
+      <bpmn:outgoing>Flow_EndRejected</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:scriptTask id="Task_AdvanceApprover" name="Update Approver Information">
+      <bpmn:incoming>Flow_RequestMoreInfo</bpmn:incoming>
+      <bpmn:incoming>Flow_Approved</bpmn:incoming>
+      <bpmn:outgoing>Flow_AfterAdvance</bpmn:outgoing>
+    </bpmn:scriptTask>
+
+    <bpmn:exclusiveGateway id="Gateway_HasNextApprover" name="Has Next Approver?">
+      <bpmn:incoming>Flow_AfterAdvance</bpmn:incoming>
+      <bpmn:outgoing>Flow_NextApproverNotify</bpmn:outgoing>
+      <bpmn:outgoing>Flow_FinalApproval</bpmn:outgoing>
+      <bpmn:outgoing>Flow_MoreInfoToRequestor</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <bpmn:scriptTask id="Task_PushToCollection" name="Push Transaction Details to Collection">
+      <bpmn:incoming>Flow_FinalApproval</bpmn:incoming>
+      <bpmn:outgoing>Flow_EndApproved</bpmn:outgoing>
+    </bpmn:scriptTask>
+
+    <bpmn:endEvent id="EndEvent_Rejected" name="End Rejected">
+      <bpmn:incoming>Flow_EndRejected</bpmn:incoming>
+    </bpmn:endEvent>
+
+    <bpmn:endEvent id="EndEvent_Approved" name="End Approved">
+      <bpmn:incoming>Flow_EndApproved</bpmn:incoming>
+    </bpmn:endEvent>
+
+    <bpmn:sequenceFlow id="Flow_1" sourceRef="StartEvent_1" targetRef="Task_GetRequestorInfo" />
+    <bpmn:sequenceFlow id="Flow_2" sourceRef="Task_GetRequestorInfo" targetRef="Task_RequestorForm" />
+    <bpmn:sequenceFlow id="Flow_3" sourceRef="Task_RequestorForm" targetRef="Task_GetNextApprover" />
+    <bpmn:sequenceFlow id="Flow_4" sourceRef="Task_GetNextApprover" targetRef="Gateway_HasNoError" />
+
+    <bpmn:sequenceFlow id="Flow_NoError" sourceRef="Gateway_HasNoError" targetRef="Task_NotifyApprover" />
+    <bpmn:sequenceFlow id="Flow_WithError" sourceRef="Gateway_HasNoError" targetRef="Task_NotifyError" />
+    <bpmn:sequenceFlow id="Flow_ErrorBackToRequestor" sourceRef="Task_NotifyError" targetRef="Task_RequestorForm" />
+
+    <bpmn:sequenceFlow id="Flow_5" sourceRef="Task_NotifyApprover" targetRef="Task_ApproverReview" />
+    <bpmn:sequenceFlow id="Flow_6" sourceRef="Task_ApproverReview" targetRef="Gateway_ApproverDecision" />
+
+    <bpmn:sequenceFlow id="Flow_Rejected" sourceRef="Gateway_ApproverDecision" targetRef="Task_NotifyRejected" />
+    <bpmn:sequenceFlow id="Flow_RequestMoreInfo" sourceRef="Gateway_ApproverDecision" targetRef="Task_AdvanceApprover" />
+    <bpmn:sequenceFlow id="Flow_Approved" sourceRef="Gateway_ApproverDecision" targetRef="Task_AdvanceApprover" />
+
+    <bpmn:sequenceFlow id="Flow_AfterAdvance" sourceRef="Task_AdvanceApprover" targetRef="Gateway_HasNextApprover" />
+    <bpmn:sequenceFlow id="Flow_NextApproverNotify" sourceRef="Gateway_HasNextApprover" targetRef="Task_NotifyApprover" />
+    <bpmn:sequenceFlow id="Flow_FinalApproval" sourceRef="Gateway_HasNextApprover" targetRef="Task_PushToCollection" />
+    <bpmn:sequenceFlow id="Flow_MoreInfoToRequestor" sourceRef="Gateway_HasNextApprover" targetRef="Task_RequestorForm" />
+
+    <bpmn:sequenceFlow id="Flow_EndRejected" sourceRef="Task_NotifyRejected" targetRef="EndEvent_Rejected" />
+    <bpmn:sequenceFlow id="Flow_EndApproved" sourceRef="Task_PushToCollection" targetRef="EndEvent_Approved" />
+  </bpmn:process>
+</bpmn:definitions>
