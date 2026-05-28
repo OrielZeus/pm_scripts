@@ -35,7 +35,7 @@
  * UI entry point: https://dlsu.cloud.processmaker.net/requests — API calls use /api/1.0 base below.
  * Rotate tokens in ProcessMaker if this file is ever exposed; prefer env vars in production.
  */
-const DLSU_HARDCODE_DEV_API_HOST = 'https://dlsu.cloud.processmaker.net/api/1.0';
+const DLSU_HARDCODE_DEV_API_HOST = 'https://dlsu.dev.cloud.processmaker.net/api/1.0';
 const DLSU_HARDCODE_PROD_API_HOST = 'https://dlsu.cloud.processmaker.net/api/1.0';
 const DLSU_HARDCODE_PROD_API_TOKEN = 'eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOiIxMCIsImp0aSI6IjI4ODc1MGNiOTA5YjNmYzg3MTMxZThmY2M4MjlkNzllZjIwMGQxMjNiODg2NmQ5YjMzMjQxOWM2NWY2YTJhMGFkMTM0YzQzMTcwZmU2ZWY4IiwiaWF0IjoxNzc2MTI4MjAwLjU2NzgyOCwibmJmIjoxNzc2MTI4MjAwLjU2NzgzLCJleHAiOjE4MDc2NjQyMDAuNTYzMDM2LCJzdWIiOiI5MTEiLCJzY29wZXMiOltdfQ.G6GbwtKrrBM0lGI1rVj2Scus3cdmUoVw-G4iCHNBK37RYX4bmido_tt6XybtCcHmkSIhfNAozwpDaXoQgrtuOIy_K0nFPWjndfYzB5k5pokEe5hmUKcLRWtquQm3OkctxYuNEp5Ca2FoQFgiTRjba6x7ZxHisZmtsgavKNo3ygmIUKFs2qFqilgFSf1b8t63bxv2gdKFB9d63ZS9Rjs3QP9zm06O6NAmFF5oHFLd72V30HpTufwnc-zJQI0apy7pYs-9KyqDOcCypKxFc1FHBTmmcSuVrycrKWtjRtg9zztgXZehi0a8dBuKzMuZrsdgouvXqWxq2-Ft3G2SWPmr8nK93Dz0Ex-eLKRkOfSlc6pBQc0u3aDUk4bdD9BDpp8XXr93QDm1dT4vWudSk6GnSCrCnFBC34AUzsYTzbr0HkbeeXY7oxcegkCkS0nsNXneOkO4-z4kIRUL069eNOjbVz-qjQIsVv-N9PgNKGDtbs1Q6QQCWfqlry1Wl_WSh2rNQYATm37auy5qKFQTrz6h7m574lz1v1GPvdT3H-JwnOKzaoCt6nHA54HEi1PEyELN7IjVF1AqnAPzvY8QEqWhvR3HfoYRO10PYy5uzbUUt3mGxlNGTzlGUxOBd0-cQ8At--J1vvF3dmpnywaYxHjW9nqsLAbAK0Hb7tOwT2a8rcc';
 
@@ -174,6 +174,7 @@ function dlsu_resolve_prod_token(array $data): string
 if (!isset($data) || !is_array($data)) {
     $data = [];
 }
+$GLOBALS['dlsu_debug_console'] = [];
 
 /**
  * Request id for logging / attachments / audit; defaults to 1 when not in a request context.
@@ -202,13 +203,14 @@ $dlsuCfg = [
     'api_host_prod'  => dlsu_resolve_prod_host($data),
     'api_token_prod' => dlsu_resolve_prod_token($data),
 
-    'new_user_password_for_apply' => (string) ($data['new_user_password_for_apply'] ?? $data['DLSU_NEW_USER_PASSWORD'] ?? getenv('DLSU_NEW_USER_PASSWORD') ?: ''),
+    'new_user_password_for_apply' => (string) ($data['new_user_password_for_apply'] ?? $data['DLSU_NEW_USER_PASSWORD'] ?? getenv('DLSU_NEW_USER_PASSWORD') ?: 'Password.123!'),
 
-    'collection_id_prod' => trim((string) ($data['collection_id_prod'] ?? $data['DLSU_COLLECTION_ID_PROD'] ?? getenv('DLSU_COLLECTION_ID_PROD') ?: '')),
-    'collection_id_dev'  => trim((string) ($data['collection_id_dev'] ?? $data['DLSU_COLLECTION_ID_DEV'] ?? getenv('DLSU_COLLECTION_ID_DEV') ?: '')),
-    'collection_id_prod_2' => trim((string) ($data['collection_id_prod_2'] ?? $data['DLSU_COLLECTION_ID_PROD_2'] ?? getenv('DLSU_COLLECTION_ID_PROD_2') ?: '')),
-    'collection_id_dev_2'  => trim((string) ($data['collection_id_dev_2'] ?? $data['DLSU_COLLECTION_ID_DEV_2'] ?? getenv('DLSU_COLLECTION_ID_DEV_2') ?: '')),
-    'collection_match_key' => trim((string) ($data['collection_match_key'] ?? getenv('DLSU_COLLECTION_MATCH_KEY') ?: 'email')),
+    'collection_id_prod' => trim((string) ($data['collection_id_prod'] ?? $data['DLSU_COLLECTION_ID_PROD'] ?? getenv('DLSU_COLLECTION_ID_PROD') ?: '43')),
+    'collection_id_dev'  => trim((string) ($data['collection_id_dev'] ?? $data['DLSU_COLLECTION_ID_DEV'] ?? getenv('DLSU_COLLECTION_ID_DEV') ?: '121')),
+    'collection_id_prod_2' => trim((string) ($data['collection_id_prod_2'] ?? $data['DLSU_COLLECTION_ID_PROD_2'] ?? getenv('DLSU_COLLECTION_ID_PROD_2') ?: '40')),
+    'collection_id_dev_2'  => trim((string) ($data['collection_id_dev_2'] ?? $data['DLSU_COLLECTION_ID_DEV_2'] ?? getenv('DLSU_COLLECTION_ID_DEV_2') ?: '124')),
+    'collection_match_key' => trim((string) ($data['collection_match_key'] ?? getenv('DLSU_COLLECTION_MATCH_KEY') ?: 'employee_email')),
+    'collection_match_key_2' => trim((string) ($data['collection_match_key_2'] ?? getenv('DLSU_COLLECTION_MATCH_KEY_2') ?: '')),
     'audit_collection_id' => trim((string) ($data['audit_collection_id'] ?? $data['DLSU_AUDIT_COLLECTION_ID'] ?? getenv('DLSU_AUDIT_COLLECTION_ID') ?: '')),
 
     'include_admins' => (static function () use ($data) {
@@ -222,7 +224,14 @@ $dlsuCfg = [
     'scope'  => strtolower(trim((string) ($data['scope'] ?? 'all'))),
 
     'save_backup_in_return' => filter_var($data['save_backup_in_return'] ?? true, FILTER_VALIDATE_BOOLEAN),
+    'debug_console' => (static function () use ($data) {
+        if (array_key_exists('debug_console', $data)) {
+            return filter_var($data['debug_console'], FILTER_VALIDATE_BOOLEAN);
+        }
+        return true;
+    })(),
 ];
+$GLOBALS['dlsu_debug_enabled'] = !empty($dlsuCfg['debug_console']);
 
 $action = $dlsuCfg['action'];
 $scope  = $dlsuCfg['scope'];
@@ -247,6 +256,7 @@ $colDev  = $dlsuCfg['collection_id_dev'];
 $colProd2 = $dlsuCfg['collection_id_prod_2'];
 $colDev2 = $dlsuCfg['collection_id_dev_2'];
 $colKey  = $dlsuCfg['collection_match_key'];
+$colKey2 = trim((string) ($dlsuCfg['collection_match_key_2'] ?? ''));
 $auditCollectionId = $dlsuCfg['audit_collection_id'];
 
 if ($devHost === '' || $devTok === '') {
@@ -298,7 +308,7 @@ if ($scope === 'collections') {
             $devTok,
             $colProd2,
             $colDev2,
-            $colKey,
+            $colKey2,
             $apply
         );
     }
@@ -332,6 +342,8 @@ if ($scope === 'collections') {
                 'collection_id_prod_2' => $colProd2,
                 'collection_id_dev_2' => $colDev2,
                 'audit_collection_id' => $auditCollectionId,
+                'collection_match_key' => $colKey,
+                'collection_match_key_2' => $colKey2,
             ],
         ];
     }
@@ -383,6 +395,7 @@ if ($scope === 'collections') {
         'backup_before_apply' => $collBackup,
         'purify_note' => 'Merge backup_before_apply into request data as dlsu_backup if you want it stored on the case; remove that key later to purify.',
     ];
+    $payloadColl['debug_console'] = dlsu_debug_dump($dlsuCfg);
     $payloadColl = dlsu_payload_with_audit_row($dlsuCfg, $devHost, $devTok, $payloadColl, $action, $scope, $err === null);
     return dlsu_success_response(
         $dlsuCfg,
@@ -427,9 +440,20 @@ $rowsReturnUsersFromDevelopment = array_values($devUsersRaw);
 
 $devByUser  = dlsu_index_by_lower_username($devUsersRaw);
 $prodByUser = dlsu_index_by_lower_username($prodUsersRaw);
+$prodByEmail = dlsu_index_by_lower_email($prodUsersRaw);
+$prodById = dlsu_index_users_by_id($prodUsersRaw);
+$devByEmail = dlsu_index_by_lower_email($devUsersRaw);
 
 $missingOnDev = [];
 foreach ($prodByUser as $lu => $p) {
+    if (isset($devByUser[$lu])) {
+        continue;
+    }
+    $emailKey = strtolower(trim((string) ($p['email'] ?? '')));
+    if ($emailKey !== '' && isset($devByEmail[$emailKey])) {
+        $devByUser[$lu] = $devByEmail[$emailKey];
+        continue;
+    }
     if (!isset($devByUser[$lu])) {
         $missingOnDev[] = $p;
     }
@@ -501,6 +525,7 @@ $collectionReport2 = null;
 $rowsCollectionProd2 = [];
 $rowsCollectionDev2 = [];
 if ($colProd !== '' && $colDev !== '' && ($scope === 'all' || $scope === 'collections')) {
+    $applyCollectionsNow = $apply && $scope === 'collections';
     $collectionReport = dlsu_compare_collections(
         $prodHost,
         $prodTok,
@@ -509,12 +534,13 @@ if ($colProd !== '' && $colDev !== '' && ($scope === 'all' || $scope === 'collec
         $colProd,
         $colDev,
         $colKey,
-        $apply
+        $applyCollectionsNow
     );
     $rowsCollectionProd = $collectionReport['rows_prod_full'] ?? [];
     $rowsCollectionDev = $collectionReport['rows_dev_full'] ?? [];
 }
 if ($colProd2 !== '' && $colDev2 !== '' && ($scope === 'all' || $scope === 'collections')) {
+    $applyCollectionsNow = $apply && $scope === 'collections';
     $collectionReport2 = dlsu_compare_collections(
         $prodHost,
         $prodTok,
@@ -522,8 +548,8 @@ if ($colProd2 !== '' && $colDev2 !== '' && ($scope === 'all' || $scope === 'coll
         $devTok,
         $colProd2,
         $colDev2,
-        $colKey,
-        $apply
+        $colKey2,
+        $applyCollectionsNow
     );
     $rowsCollectionProd2 = $collectionReport2['rows_prod_full'] ?? [];
     $rowsCollectionDev2 = $collectionReport2['rows_dev_full'] ?? [];
@@ -548,6 +574,7 @@ if ($apply && $dlsuCfg['save_backup_in_return']) {
             'collection_id_dev_2' => $colDev2,
             'audit_collection_id' => $auditCollectionId,
             'collection_match_key' => $colKey,
+            'collection_match_key_2' => $colKey2,
         ],
     ];
 }
@@ -589,13 +616,17 @@ $resultPayload = [
     'group_membership_diffs' => $groupMismatches,
     'groups_missing_on_dev_catalog' => $groupsMissingOnDevCatalog,
     'new_users_created' => [],
+    'users_updated' => [],
     'group_membership_updates_applied' => [],
     'new_groups_created' => [],
+    'collection_user_reference_updates' => [],
+    'collection_user_reference_unresolved' => [],
     'collections' => $collectionReport,
     'collections_pair_2' => $collectionReport2,
     'backup_before_apply' => $backupBeforeApply,
     'purify_note' => 'To clean request data: delete dlsu_backup, old script outputs, and any temporary tokens from stored JSON when audit is complete.',
 ];
+$resultPayload['debug_console'] = dlsu_debug_dump($dlsuCfg);
 
 if (!$apply) {
     $collectionErrHint = null;
@@ -612,9 +643,33 @@ if (!$apply) {
     return dlsu_success_response($dlsuCfg, $resultPayload, null, $collectionErrHint);
 }
 
-$applied = ['users_created' => [], 'group_updates' => [], 'errors' => [], 'new_groups_created' => []];
+$applied = ['users_created' => [], 'users_updated' => [], 'group_updates' => [], 'errors' => [], 'new_groups_created' => [], 'collection_user_reference_updates' => [], 'collection_user_reference_unresolved' => []];
 
 if ($scope === 'all' || $scope === 'users') {
+    foreach ($prodByUser as $lu => $p) {
+        if (!isset($devByUser[$lu])) {
+            continue;
+        }
+        $devUserId = (int) ($devByUser[$lu]['id'] ?? 0);
+        if ($devUserId <= 0) {
+            continue;
+        }
+        $uerr = dlsu_rest_update_user_pm($devHost, $devTok, $devUserId, $p);
+        if ($uerr !== null) {
+            $applied['errors'][] = 'update user ' . ($p['username'] ?? '?') . ': ' . $uerr;
+            continue;
+        }
+        $applied['users_updated'][] = [
+            'prod_user_id' => (int) ($p['id'] ?? 0),
+            'dev_user_id' => $devUserId,
+            'username' => (string) ($p['username'] ?? ''),
+        ];
+        $devByUser[$lu]['username'] = (string) ($p['username'] ?? ($devByUser[$lu]['username'] ?? ''));
+        $devByUser[$lu]['email'] = (string) ($p['email'] ?? ($devByUser[$lu]['email'] ?? ''));
+        $devByUser[$lu]['firstname'] = (string) ($p['firstname'] ?? ($devByUser[$lu]['firstname'] ?? ''));
+        $devByUser[$lu]['lastname'] = (string) ($p['lastname'] ?? ($devByUser[$lu]['lastname'] ?? ''));
+    }
+
     if ($missingOnDev !== [] && $newUserPassword === '') {
         $applied['errors'][] = 'new_user_password_for_apply (or DLSU_NEW_USER_PASSWORD) is required when creating missing users.';
     } elseif ($missingOnDev !== []) {
@@ -637,8 +692,17 @@ if ($scope === 'all' || $scope === 'users') {
                     $devByUser[strtolower((string) ($p['username'] ?? ''))] = [
                         'id' => $created->getId(),
                         'username' => $p['username'],
+                        'email' => $p['email'] ?? '',
+                        'firstname' => $p['firstname'] ?? '',
+                        'lastname' => $p['lastname'] ?? '',
                     ];
                 } catch (\Throwable $e) {
+                    dlsu_debug_log($dlsuCfg, [
+                        'phase' => 'apply_users',
+                        'operation' => 'sdk_create_user',
+                        'username' => (string) ($p['username'] ?? ''),
+                        'error' => $e->getMessage(),
+                    ]);
                     $applied['errors'][] = 'create user ' . ($p['username'] ?? '?') . ': ' . $e->getMessage();
                 }
             } else {
@@ -654,9 +718,77 @@ if ($scope === 'all' || $scope === 'users') {
                     $devByUser[strtolower((string) ($p['username'] ?? ''))] = [
                         'id' => $newId,
                         'username' => $p['username'],
+                        'email' => $p['email'] ?? '',
+                        'firstname' => $p['firstname'] ?? '',
+                        'lastname' => $p['lastname'] ?? '',
                     ];
                 }
             }
+        }
+    }
+}
+
+if (($scope === 'all' || $scope === 'collections') && empty($applied['errors'])) {
+    if ($collectionReport !== null && !isset($collectionReport['error'])) {
+        $pair1 = dlsu_align_collection_user_references(
+            $devHost,
+            $devTok,
+            $colDev,
+            $colKey,
+            (array) ($collectionReport['rows_prod_full'] ?? []),
+            (array) ($collectionReport['rows_dev_full'] ?? []),
+            $prodByUser,
+            $prodByEmail,
+            $prodById,
+            $devByUser,
+            $apply,
+            dlsu_collection_user_profile_for_pair($colProd, $colDev)
+        );
+        if (isset($pair1['error'])) {
+            $applied['errors'][] = 'collections pair 1 user alignment: ' . (string) $pair1['error'];
+        } else {
+            $applied['collection_user_reference_updates'][] = [
+                'pair' => 1,
+                'collection_dev' => $colDev,
+                'updated' => $pair1['updated'] ?? [],
+                'created' => $pair1['created'] ?? [],
+            ];
+            $applied['collection_user_reference_unresolved'][] = [
+                'pair' => 1,
+                'collection_dev' => $colDev,
+                'rows' => $pair1['unresolved'] ?? [],
+            ];
+        }
+    }
+    if ($collectionReport2 !== null && !isset($collectionReport2['error'])) {
+        $pair2 = dlsu_align_collection_user_references(
+            $devHost,
+            $devTok,
+            $colDev2,
+            $colKey2,
+            (array) ($collectionReport2['rows_prod_full'] ?? []),
+            (array) ($collectionReport2['rows_dev_full'] ?? []),
+            $prodByUser,
+            $prodByEmail,
+            $prodById,
+            $devByUser,
+            $apply,
+            dlsu_collection_user_profile_for_pair($colProd2, $colDev2)
+        );
+        if (isset($pair2['error'])) {
+            $applied['errors'][] = 'collections pair 2 user alignment: ' . (string) $pair2['error'];
+        } else {
+            $applied['collection_user_reference_updates'][] = [
+                'pair' => 2,
+                'collection_dev' => $colDev2,
+                'updated' => $pair2['updated'] ?? [],
+                'created' => $pair2['created'] ?? [],
+            ];
+            $applied['collection_user_reference_unresolved'][] = [
+                'pair' => 2,
+                'collection_dev' => $colDev2,
+                'rows' => $pair2['unresolved'] ?? [],
+            ];
         }
     }
 }
@@ -690,6 +822,14 @@ if (($scope === 'all' || $scope === 'groups') && empty($applied['errors'])) {
                     'group_ids_applied' => $ids,
                 ];
             } catch (\Throwable $e) {
+                dlsu_debug_log($dlsuCfg, [
+                    'phase' => 'apply_groups',
+                    'operation' => 'sdk_update_user_groups',
+                    'username' => (string) ($p['username'] ?? ''),
+                    'user_id' => $userId,
+                    'group_ids' => $ids,
+                    'error' => $e->getMessage(),
+                ]);
                 $applied['errors'][] = 'groups ' . ($p['username'] ?? '?') . ': ' . $e->getMessage();
             }
         } else {
@@ -708,9 +848,13 @@ if (($scope === 'all' || $scope === 'groups') && empty($applied['errors'])) {
 }
 
 $resultPayload['new_users_created'] = $applied['users_created'];
+$resultPayload['users_updated'] = $applied['users_updated'];
 $resultPayload['group_membership_updates_applied'] = $applied['group_updates'];
 $resultPayload['new_groups_created'] = $applied['new_groups_created'];
+$resultPayload['collection_user_reference_updates'] = $applied['collection_user_reference_updates'];
+$resultPayload['collection_user_reference_unresolved'] = $applied['collection_user_reference_unresolved'];
 $resultPayload['applied_errors'] = $applied['errors'];
+$resultPayload['debug_console'] = dlsu_debug_dump($dlsuCfg);
 
 $collectionErrApply = null;
 if ($collectionReport !== null && isset($collectionReport['error'])) {
@@ -757,6 +901,97 @@ return dlsu_success_response(
  * @param array<string,mixed>|null $detail
  * @return array<string,mixed>
  */
+function dlsu_debug_enabled(array $cfg): bool
+{
+    if (isset($GLOBALS['dlsu_debug_enabled'])) {
+        return (bool) $GLOBALS['dlsu_debug_enabled'];
+    }
+    return !empty($cfg['debug_console']);
+}
+
+/**
+ * Add one debug event to in-memory console.
+ *
+ * @param array<string,mixed> $cfg
+ * @param array<string,mixed> $event
+ */
+function dlsu_debug_log(array $cfg, array $event): void
+{
+    if (!dlsu_debug_enabled($cfg)) {
+        return;
+    }
+    if (!isset($GLOBALS['dlsu_debug_console']) || !is_array($GLOBALS['dlsu_debug_console'])) {
+        $GLOBALS['dlsu_debug_console'] = [];
+    }
+    $event['at'] = gmdate('c');
+    $GLOBALS['dlsu_debug_console'][] = $event;
+    if (count($GLOBALS['dlsu_debug_console']) > 300) {
+        $GLOBALS['dlsu_debug_console'] = array_slice($GLOBALS['dlsu_debug_console'], -300);
+    }
+}
+
+/**
+ * Return current debug console events.
+ *
+ * @param array<string,mixed> $cfg
+ * @return array<int,array<string,mixed>>
+ */
+function dlsu_debug_dump(array $cfg): array
+{
+    if (!dlsu_debug_enabled($cfg)) {
+        return [];
+    }
+    $rows = $GLOBALS['dlsu_debug_console'] ?? [];
+    return is_array($rows) ? array_values($rows) : [];
+}
+
+/**
+ * Remove sensitive fields from request body before adding to debug console.
+ *
+ * @param array<string,mixed>|null $body
+ * @return array<string,mixed>|null
+ */
+function dlsu_debug_safe_body(?array $body): ?array
+{
+    if ($body === null) {
+        return null;
+    }
+    $safe = $body;
+    $mask = ['password', 'api_token', 'token', 'authorization'];
+    foreach ($mask as $field) {
+        if (array_key_exists($field, $safe)) {
+            $safe[$field] = '***';
+        }
+    }
+    if (isset($safe['data']) && is_array($safe['data'])) {
+        if (array_key_exists('password', $safe['data'])) {
+            $safe['data']['password'] = '***';
+        }
+    }
+    return $safe;
+}
+
+/**
+ * Build minimal configuration used by low-level helpers for debug logging.
+ *
+ * @param string $stage
+ * @return array<string,mixed>
+ */
+function dlsu_debug_cfg(string $stage): array
+{
+    return [
+        'debug_console' => isset($GLOBALS['dlsu_debug_enabled']) ? (bool) $GLOBALS['dlsu_debug_enabled'] : true,
+        'stage' => $stage,
+    ];
+}
+
+/**
+ * Build a standard error response including config echo (no secrets) and rows placeholders.
+ *
+ * @param array<string,mixed> $cfg
+ * @param array<string,mixed>|null $detail
+ * @return array<string,mixed>
+ */
 function dlsu_error_response(array $cfg, string $message, $detail = null): array
 {
     $out = [
@@ -770,6 +1005,7 @@ function dlsu_error_response(array $cfg, string $message, $detail = null): array
         'rows_return_groups_dev_catalog' => [],
         'rows_return_collection_prod_records' => [],
         'rows_return_collection_dev_records' => [],
+        'debug_console' => dlsu_debug_dump($cfg),
     ];
     if ($detail !== null) {
         $out['detail'] = $detail;
@@ -829,6 +1065,7 @@ function dlsu_configuration_echo(array $cfg): array
         'collection_id_dev_2' => $cfg['collection_id_dev_2'] ?? '',
         'audit_collection_id' => $cfg['audit_collection_id'] ?? '',
         'collection_match_key' => $cfg['collection_match_key'],
+        'collection_match_key_2' => $cfg['collection_match_key_2'] ?? '',
         'include_admins' => $cfg['include_admins'],
         'action' => $cfg['action'],
         'scope' => $cfg['scope'],
@@ -914,7 +1151,41 @@ function dlsu_http_json(string $method, string $url, string $token, ?array $body
         $decoded = json_decode($raw, true);
         return is_array($decoded) ? $decoded : ['raw' => $raw];
     } catch (\Throwable $e) {
-        return ['error_message' => $e->getMessage()];
+        $out = ['error_message' => $e->getMessage()];
+        $statusCode = null;
+        if (method_exists($e, 'getResponse')) {
+            $resp = $e->getResponse();
+            if ($resp !== null) {
+                $statusCode = method_exists($resp, 'getStatusCode') ? (int) $resp->getStatusCode() : null;
+                $raw = (string) $resp->getBody();
+                if ($raw !== '') {
+                    $decoded = json_decode($raw, true);
+                    if (is_array($decoded)) {
+                        $msg = trim((string) ($decoded['message'] ?? ''));
+                        if ($msg !== '') {
+                            $out['error_message'] = $msg;
+                        }
+                        $out['error_detail'] = $decoded;
+                        if (isset($decoded['errors']) && is_array($decoded['errors'])) {
+                            $out['error_fields'] = array_keys($decoded['errors']);
+                        }
+                    } else {
+                        $out['error_response_raw'] = $raw;
+                    }
+                }
+            }
+        }
+        dlsu_debug_log(dlsu_debug_cfg('http_json'), [
+            'phase' => 'http_error',
+            'method' => $method,
+            'url' => $url,
+            'status_code' => $statusCode,
+            'request_body' => dlsu_debug_safe_body($body),
+            'error_message' => (string) ($out['error_message'] ?? ''),
+            'error_fields' => $out['error_fields'] ?? [],
+            'error_detail' => $out['error_detail'] ?? null,
+        ]);
+        return $out;
     }
 }
 
@@ -927,18 +1198,15 @@ function dlsu_http_json(string $method, string $url, string $token, ?array $body
 function dlsu_rest_create_user_pm(string $devHost, string $devTok, array $p, string $password): array
 {
     $url = rtrim($devHost, '/') . '/users';
-    $body = [
-        'username' => (string) ($p['username'] ?? ''),
-        'email' => (string) ($p['email'] ?? ''),
-        'firstname' => (string) ($p['firstname'] ?? ''),
-        'lastname' => (string) ($p['lastname'] ?? ''),
-        'status' => (string) ($p['status'] ?? 'ACTIVE'),
-        'password' => $password,
-    ];
-    $res = dlsu_http_json('POST', $url, $devTok, $body);
-    if (isset($res['error_message'])) {
-        return ['error' => (string) $res['error_message']];
+    $body = dlsu_user_payload_from_prod($p, $password, true);
+    $request = dlsu_http_json_retry_clean_fields('POST', $url, $devTok, $body, ['username', 'email', 'password'], 3);
+    if (!$request['ok']) {
+        return [
+            'error' => (string) ($request['error'] ?? 'Unknown create user error'),
+            'detail' => $request['detail'] ?? null,
+        ];
     }
+    $res = (array) ($request['response'] ?? []);
     $id = $res['id'] ?? null;
     if ($id === null && isset($res['data']) && is_array($res['data'])) {
         $id = $res['data']['id'] ?? null;
@@ -948,6 +1216,229 @@ function dlsu_rest_create_user_pm(string $devHost, string $devTok, array $p, str
     }
 
     return ['id' => (int) $id];
+}
+
+/**
+ * Update a dev user row so name/email/status stay aligned with production source.
+ *
+ * @param array<string,mixed> $p Production user row
+ */
+function dlsu_rest_update_user_pm(string $devHost, string $devTok, int $devUserId, array $p): ?string
+{
+    $url = rtrim($devHost, '/') . '/users/' . $devUserId;
+    $body = dlsu_user_payload_from_prod($p, null, false);
+    $request = dlsu_http_json_retry_clean_fields('PUT', $url, $devTok, $body, [], 3);
+    if (!$request['ok']) {
+        return (string) ($request['error'] ?? 'Unknown update user error');
+    }
+
+    return null;
+}
+
+/**
+ * Build user payload for create/update and normalize text fields.
+ *
+ * @param array<string,mixed> $p
+ * @return array<string,mixed>
+ */
+function dlsu_user_payload_from_prod(array $p, ?string $password, bool $forCreate): array
+{
+    $username = dlsu_clean_user_text((string) ($p['username'] ?? ''), 80);
+    $email = strtolower(trim((string) ($p['email'] ?? '')));
+    $firstname = dlsu_clean_user_text((string) ($p['firstname'] ?? ''), 100);
+    $lastname = dlsu_clean_user_text((string) ($p['lastname'] ?? ''), 100);
+    $status = strtoupper(trim((string) ($p['status'] ?? 'ACTIVE')));
+    if ($status !== 'ACTIVE' && $status !== 'INACTIVE') {
+        $status = 'ACTIVE';
+    }
+    if ($username === '' && $email !== '') {
+        $at = strpos($email, '@');
+        $username = $at === false ? $email : substr($email, 0, $at);
+        $username = dlsu_clean_user_text($username, 80);
+    }
+    if ($username === '') {
+        $username = 'user_' . (string) ((int) ($p['id'] ?? 0));
+    }
+
+    $out = [
+        'username' => $username,
+        'email' => $email,
+        'status' => $status,
+    ];
+    if ($firstname !== '') {
+        $out['firstname'] = $firstname;
+    }
+    if ($lastname !== '') {
+        $out['lastname'] = $lastname;
+    }
+    if ($forCreate) {
+        $out['password'] = (string) $password;
+    }
+
+    return $out;
+}
+
+/**
+ * Remove control characters and normalize spacing for user text fields.
+ */
+function dlsu_clean_user_text(string $value, int $maxLen): string
+{
+    $v = trim($value);
+    if ($v === '') {
+        return '';
+    }
+    $v = preg_replace('/[\x00-\x1F\x7F]/u', ' ', $v) ?? $v;
+    $v = preg_replace('/\s+/u', ' ', $v) ?? $v;
+    $v = trim($v);
+    if ($maxLen > 0 && strlen($v) > $maxLen) {
+        $v = substr($v, 0, $maxLen);
+    }
+    return $v;
+}
+
+/**
+ * Execute JSON request and retry by removing invalid optional fields from payload.
+ *
+ * @param array<string,mixed> $body
+ * @param array<int,string> $requiredFields
+ * @return array{ok:bool,response?:array<string,mixed>,error?:string,detail?:array<string,mixed>,attempts:int,body_used:array<string,mixed>}
+ */
+function dlsu_http_json_retry_clean_fields(
+    string $method,
+    string $url,
+    string $token,
+    array $body,
+    array $requiredFields,
+    int $maxAttempts
+): array {
+    $attempt = 0;
+    $currentBody = $body;
+    $required = [];
+    foreach ($requiredFields as $rf) {
+        $required[strtolower($rf)] = true;
+    }
+
+    while ($attempt < $maxAttempts) {
+        $attempt++;
+        $res = dlsu_http_json($method, $url, $token, $currentBody);
+        if (!isset($res['error_message'])) {
+            dlsu_debug_log(dlsu_debug_cfg('retry_clean_fields'), [
+                'phase' => 'http_retry_success',
+                'method' => $method,
+                'url' => $url,
+                'attempt' => $attempt,
+                'request_body' => dlsu_debug_safe_body($currentBody),
+            ]);
+            return [
+                'ok' => true,
+                'response' => $res,
+                'attempts' => $attempt,
+                'body_used' => $currentBody,
+            ];
+        }
+
+        $fields = dlsu_error_fields_from_response($res);
+        if ($fields === []) {
+            dlsu_debug_log(dlsu_debug_cfg('retry_clean_fields'), [
+                'phase' => 'http_retry_failed_no_fields',
+                'method' => $method,
+                'url' => $url,
+                'attempt' => $attempt,
+                'request_body' => dlsu_debug_safe_body($currentBody),
+                'error' => (string) ($res['error_message'] ?? 'Unknown API error'),
+                'detail' => $res,
+            ]);
+            return [
+                'ok' => false,
+                'error' => (string) ($res['error_message'] ?? 'Unknown API error'),
+                'detail' => $res,
+                'attempts' => $attempt,
+                'body_used' => $currentBody,
+            ];
+        }
+
+        $removedAny = false;
+        $removedFields = [];
+        foreach ($fields as $field) {
+            $f = strtolower($field);
+            if (isset($required[$f])) {
+                continue;
+            }
+            if (array_key_exists($field, $currentBody)) {
+                unset($currentBody[$field]);
+                $removedAny = true;
+                $removedFields[] = $field;
+            }
+        }
+        if (!$removedAny) {
+            dlsu_debug_log(dlsu_debug_cfg('retry_clean_fields'), [
+                'phase' => 'http_retry_failed_required_only',
+                'method' => $method,
+                'url' => $url,
+                'attempt' => $attempt,
+                'request_body' => dlsu_debug_safe_body($currentBody),
+                'error' => (string) ($res['error_message'] ?? 'Unknown API error'),
+                'error_fields' => $fields,
+                'detail' => $res,
+            ]);
+            return [
+                'ok' => false,
+                'error' => (string) ($res['error_message'] ?? 'Unknown API error'),
+                'detail' => $res,
+                'attempts' => $attempt,
+                'body_used' => $currentBody,
+            ];
+        }
+        dlsu_debug_log(dlsu_debug_cfg('retry_clean_fields'), [
+            'phase' => 'http_retry_removed_fields',
+            'method' => $method,
+            'url' => $url,
+            'attempt' => $attempt,
+            'removed_fields' => $removedFields,
+            'next_request_body' => dlsu_debug_safe_body($currentBody),
+        ]);
+    }
+
+    dlsu_debug_log(dlsu_debug_cfg('retry_clean_fields'), [
+        'phase' => 'http_retry_exhausted',
+        'method' => $method,
+        'url' => $url,
+        'attempts' => $attempt,
+        'request_body' => dlsu_debug_safe_body($currentBody),
+    ]);
+    return [
+        'ok' => false,
+        'error' => 'Request failed after retries.',
+        'attempts' => $attempt,
+        'body_used' => $currentBody,
+    ];
+}
+
+/**
+ * Extract field names from API error payload.
+ *
+ * @param array<string,mixed> $res
+ * @return array<int,string>
+ */
+function dlsu_error_fields_from_response(array $res): array
+{
+    $fields = [];
+    if (isset($res['error_fields']) && is_array($res['error_fields'])) {
+        foreach ($res['error_fields'] as $f) {
+            $name = trim((string) $f);
+            if ($name !== '') {
+                $fields[$name] = true;
+            }
+        }
+    }
+    if ($fields === [] && isset($res['error_message'])) {
+        if (preg_match_all('/\b(username|email|firstname|lastname|status|password)\b/i', (string) $res['error_message'], $m)) {
+            foreach ($m[1] as $f) {
+                $fields[(string) $f] = true;
+            }
+        }
+    }
+    return array_keys($fields);
 }
 
 /**
