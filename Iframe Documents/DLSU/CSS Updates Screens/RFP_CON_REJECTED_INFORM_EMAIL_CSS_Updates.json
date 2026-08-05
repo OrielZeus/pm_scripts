@@ -1,0 +1,123 @@
+{
+ "id": 9003,
+ "uuid": "6957172b-b050-46a7-b538-b612a5afcd93",
+ "screen_category_id": "1",
+ "title": "RFP_CON_REJECTED_INFORM_EMAIL - CSS Updates",
+ "description": "RFP_CON_REJECTED_INFORM_EMAIL - CSS Updates",
+ "type": "EMAIL",
+ "config": [
+  {
+   "name": "RFP_CON_REJECTED_INFORM_EMAIL - CSS Updates",
+   "items": [
+    {
+     "uuid": "fba90b18-3bf9-458f-946e-ac21b3fd0654",
+     "label": "Rich Text",
+     "config": {
+      "icon": "fas fa-pencil-ruler",
+      "name": "form_html_viewer",
+      "label": null,
+      "content": "<table class=\"nl-container\" style=\"table-layout: fixed; vertical-align: top; min-width: 320px; margin: 0 auto; border-spacing: 0; border-collapse: collapse; mso-table-lspace: 0pt; mso-table-rspace: 0pt; background-color: transparent; width: 100%;\" role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" bgcolor=\"transparent\"><tbody><tr style=\"vertical-align: top;\" valign=\"top\"><td style=\"word-break: break-word; vertical-align: top;\" valign=\"top\"><div style=\"background-color: transparent;\"><div class=\"block-grid\" style=\"margin: 0 auto; min-width: 320px; max-width: 590px; overflow-wrap: break-word; word-wrap: break-word; word-break: break-word; background-color: transparent;\"><div style=\"border-collapse: collapse; display: table; width: 100%; background-color: transparent;\"><div class=\"col num12\" style=\"min-width: 320px; max-width: 590px; display: table-cell; vertical-align: top; width: 590px;\"><div style=\"width: 100% !important;\"><div style=\"border: 0px solid transparent; padding: 25px 0px 25px 0px;\"><div class=\"img-container center autowidth\" style=\"padding-right: 0px; padding-left: 0px;\" align=\"center\"><a style=\"outline: none;\" tabindex=\"-1\" href=\"https://www.dlsu.edu.ph/\" target=\"_blank\" rel=\"noopener\"> <img class=\"center autowidth\" style=\"text-decoration: none; -ms-interpolation-mode: bicubic; height: auto; border: 0; width: 100%; max-width: 346px; display: block;\" title=\"Logo\" src=\"https://dlsu.cloud.processmaker.net/storage/setting/107593/dlsu-logo-green.png?id=c20d09f06ae8bdcd0d0e457e0d90010e\" alt=\"Logo\" width=\"346\" align=\"middle\" border=\"0\"/></a> </div></div></div></div></div></div></div><div style=\"background-color: transparent;\"><div class=\"block-grid\" style=\"margin: 0 auto; min-width: 320px; max-width: 590px; overflow-wrap: break-word; word-wrap: break-word; word-break: break-word; background-color: #006937;\"><div style=\"border-collapse: collapse; display: table; width: 100%; background-color: #006937;\"><div class=\"col num12\" style=\"min-width: 320px; max-width: 590px; display: table-cell; vertical-align: top; width: 590px;\"><div style=\"width: 100% !important;\"><div style=\"border: 0px solid transparent; padding: 5px 0px 0px 0px;\"><div style=\"color: #ffffff; font-family: Poppins, Arial, Helvetica, sans-serif; line-height: 1.2; padding: 40px 10px 10px 10px;\"><div style=\"font-size: 14px; line-height: 1.2; color: #ffffff; font-family: Poppins, Arial, Helvetica, sans-serif; mso-line-height-alt: 17px;\"><p style=\"font-size: 22px; line-height: 1.3; word-break: break-word; text-align: center; mso-line-height-alt: 29px; margin: 0;\"><strong>Your Request has been Rejected</strong></p></div></div><div style=\"color: #ffffff; font-family: Poppins, Arial, Helvetica, sans-serif; line-height: 1.2; padding: 0px 10px 10px 10px;\"><div style=\"font-size: 14px; line-height: 1.2; color: #ffffff; font-family: Poppins, Arial, Helvetica, sans-serif; mso-line-height-alt: 17px;\"><p style=\"font-size: 14px; line-height: 1.2; word-break: break-word; text-align: center; mso-line-height-alt: 17px; margin: 0; padding-bottom: 20px;\"><strong><span style=\"font-size: 30px;\">{{number}}</span></strong></p></div></div></div></div></div></div></div></div><div style=\"background-color: transparent;\"><div class=\"block-grid\" style=\"margin: 0 auto; min-width: 320px; max-width: 590px; overflow-wrap: break-word; word-wrap: break-word; word-break: break-word; background-color: #ffffff;\"><div style=\"border-collapse: collapse; display: table; width: 100%; background-color: #ffffff;\"><div class=\"col num12\" style=\"min-width: 320px; max-width: 590px; display: table-cell; vertical-align: top; width: 590px;\"><div style=\"width: 100% !important;\"><div style=\"border: 0px solid transparent; padding: 20px 10px 10px 10px;\"><div style=\"color: #000000; font-family: Poppins, Arial, Helvetica, sans-serif; line-height: 1.6; padding: 10px;\"><div style=\"font-size: 14px; line-height: 1.6; color: #000000; font-family: Poppins, Arial, Helvetica, sans-serif; mso-line-height-alt: 22px;\"><p style=\"font-size: 14px; line-height: 1.6; word-break: break-word; mso-line-height-alt: 22px; margin: 0 0 10px 0;\">Hi,</p><p style=\"font-size: 14px; line-height: 1.6; word-break: break-word; mso-line-height-alt: 22px; margin: 0 0 10px 0;\">This is to inform you that the {{number}} has been rejected by the approver.</p><p style=\"font-size: 14px; line-height: 1.6; word-break: break-word; mso-line-height-alt: 22px; margin: 0 0 10px 0;\">Request Link: {{request_link}}</p><p style=\"font-size: 14px; line-height: 1.6; word-break: break-word; mso-line-height-alt: 22px; margin: 0 0 10px 0;\">Best regards,</p><p style=\"font-size: 14px; line-height: 1.6; word-break: break-word; mso-line-height-alt: 22px; margin: 0 0 10px 0;\">The BPMS Team</p></div></div><div class=\"button-container\" style=\"padding: 10px 10px 30px 10px;\" align=\"center\"><table role=\"presentation\" cellspacing=\"0\" cellpadding=\"0\" border=\"0\" align=\"center\" style=\"margin: 0 auto;\"><tbody><tr><td align=\"center\" bgcolor=\"#006937\" style=\"background-color: #006937; border-radius: 25px; mso-padding-alt: 12px 30px;\"><a style=\"-webkit-text-size-adjust: none; text-decoration: none; display: inline-block; color: #ffffff; background-color: #006937; border-radius: 25px; padding: 12px 30px; font-family: Poppins, Arial, Helvetica, sans-serif; font-size: 15px; font-weight: 600; text-align: center; word-break: keep-all;\" href=\"https://dlsu.cloud.processmaker.net/requests/{{_request.id}}\" target=\"_blank\" rel=\"noopener\">Go to the Request</a></td></tr></tbody></table></div></div></div></div></div></div></div></td></tr></tbody></table>",
+      "interactive": true,
+      "renderVarHtml": false
+     },
+     "component": "FormHtmlViewer",
+     "inspector": [
+      {
+       "type": "FormTextArea",
+       "field": "content",
+       "config": {
+        "rows": 5,
+        "label": "Content",
+        "value": null,
+        "helper": "The HTML text to display"
+       }
+      },
+      {
+       "type": "FormCheckbox",
+       "field": "renderVarHtml",
+       "config": {
+        "label": "Render HTML from a Variable",
+        "value": null,
+        "helper": null
+       }
+      },
+      {
+       "type": "FormInput",
+       "field": "conditionalHide",
+       "config": {
+        "label": "Visibility Rule",
+        "helper": "This control is hidden until this expression is true"
+       }
+      },
+      {
+       "type": "DeviceVisibility",
+       "field": "deviceVisibility",
+       "config": {
+        "label": "Device Visibility",
+        "helper": "This control is hidden until this expression is true"
+       }
+      },
+      {
+       "type": "FormInput",
+       "field": "customFormatter",
+       "config": {
+        "label": "Custom Format String",
+        "helper": "Use the Mask Pattern format <br> Date ##/##/#### <br> SSN ###-##-#### <br> Phone (###) ###-####",
+        "validation": null
+       }
+      },
+      {
+       "type": "FormInput",
+       "field": "customCssSelector",
+       "config": {
+        "label": "CSS Selector Name",
+        "helper": "Use this in your custom css rules",
+        "validation": "regex: [-?[_a-zA-Z]+[_-a-zA-Z0-9]*]"
+       }
+      },
+      {
+       "type": "FormInput",
+       "field": "ariaLabel",
+       "config": {
+        "label": "Aria Label",
+        "helper": "Attribute designed to help assistive technology (e.g. screen readers) attach a label"
+       }
+      },
+      {
+       "type": "FormInput",
+       "field": "tabindex",
+       "config": {
+        "label": "Tab Order",
+        "helper": "Order in which a user will move focus from one control to another by pressing the Tab key",
+        "validation": "regex: [0-9]*"
+       }
+      },
+      {
+       "type": "EncryptedConfig",
+       "field": "encryptedConfig",
+       "config": {
+        "label": "Encrypted",
+        "helper": null
+       }
+      }
+     ],
+     "editor-control": "FormHtmlEditor",
+     "editor-component": "FormHtmlEditor"
+    }
+   ],
+   "order": 1
+  }
+ ],
+ "computed": [],
+ "custom_css": null,
+ "created_at": "2026-06-09T00:00:00+00:00",
+ "updated_at": "2026-06-09T00:00:00+00:00",
+ "status": "ACTIVE",
+ "key": null,
+ "watchers": [],
+ "translations": null,
+ "is_template": 0,
+ "asset_type": null,
+ "is_default": 0,
+ "projects": "[]"
+}
