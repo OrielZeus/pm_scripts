@@ -62,7 +62,7 @@ function fixHtmlListStructure($jsonHtml)
 
     // Si el HTML es una lista vacía "<ul></ul>", retornar vacío
     if (trim($html) === '<ul></ul>') {
-        return ''; 
+        return '';
     }
 
     // Contar etiquetas abiertas y cerradas de ul y li
@@ -75,15 +75,15 @@ function fixHtmlListStructure($jsonHtml)
     if ($openedUl > $closedUl) {
         $html .= str_repeat('</ul>', $openedUl - $closedUl);
     }
-    
+
     // Asegurar que todos los <li> tengan sus correspondientes </li>
     if ($openedLi > $closedLi) {
         $html .= str_repeat('</li>', $openedLi - $closedLi);
     }
 
-    // Corregir listas anidadas incorrectamente
+    // Corregir listas anidadas incorrectamente (do not append stray </li> after a valid </ul>)
     $html = preg_replace('/(<ul>)\s*<\/li>/', '$1', $html);
-    $html = preg_replace('/<\/ul>\s*(?!<\/li>)/', '</ul></li>', $html);
+    $html = preg_replace('/<\/ul>\s*<\/li>/', '</ul>', $html);
 
     return $html;
 }
@@ -534,6 +534,96 @@ function evaluateCondition(
 }
 
 /*
+ * Remove section properties from a Word body fragment.
+ * PhpWord always appends w:sectPr inside w:body; embedding it via TemplateProcessor corrupts the docx.
+ *
+ * @param (string) $wordXml
+ * @return (string)
+ */
+function stripSectionPropertiesFromWordXml($wordXml)
+{
+    return preg_replace('/<w:sectPr\b[^>]*>[\s\S]*?<\/w:sectPr>/i', '', $wordXml);
+}
+
+/*
+ * Detect block-level WordprocessingML fragments (must use replaceXmlBlock, not setValue).
+ * Only w:p / w:tbl are valid body children — bare w:r / w:br must not drive replaceXmlBlock alone.
+ *
+ * @param mixed $value
+ * @return bool
+ */
+function isWordXmlBlock($value)
+{
+    return is_string($value) && preg_match('/<w:(p|tbl)\b/i', $value);
+}
+
+/*
+ * Ensure a Word XML fragment is safe to inject via replaceXmlBlock (valid body children only).
+ *
+ * @param (string) $wordXml
+ * @return (string)
+ */
+function normalizeWordXmlBlock($wordXml)
+{
+    $wordXml = stripSectionPropertiesFromWordXml(trim((string) $wordXml));
+    if ($wordXml === '') {
+        return '';
+    }
+    // Already block-level
+    if (preg_match('/^\s*<w:(p|tbl)\b/i', $wordXml)) {
+        return $wordXml;
+    }
+    // Run-level fragments become invalid if inserted as body siblings — wrap in a paragraph
+    if (preg_match('/<w:(r|br|hyperlink|sdt)\b/i', $wordXml)) {
+        return '<w:p>' . $wordXml . '</w:p>';
+    }
+    return $wordXml;
+}
+
+/*
+ * Repair body-level orphan runs left outside w:p (Word refuses to open the file).
+ * Example corruption: </w:p><w:br/><w:r>..</w:r><w:p>
+ *
+ * @param (string) $documentXml
+ * @return (string)
+ */
+function wrapOrphanBodyRunsInDocumentXml($documentXml)
+{
+    return preg_replace(
+        '/(<\/w:p>|<\/w:tbl>)((?:(?:<w:br\b[^>]*\/>|<w:proofErr\b[^>]*\/>|<w:r\b[\s\S]*?<\/w:r>)+))(?=<w:p\b|<w:tbl\b|<w:sectPr\b|<w:altChunk\b)/i',
+        '$1<w:p>$2</w:p>',
+        $documentXml
+    );
+}
+
+/*
+ * Apply wrapOrphanBodyRunsInDocumentXml to an on-disk docx after TemplateProcessor save.
+ *
+ * @param (string) $docxPath
+ * @return void
+ */
+function repairOrphanRunsInDocxFile($docxPath)
+{
+    if (!is_file($docxPath) || !class_exists('ZipArchive')) {
+        return;
+    }
+    $zip = new ZipArchive();
+    if ($zip->open($docxPath) !== true) {
+        return;
+    }
+    $documentXml = $zip->getFromName('word/document.xml');
+    if ($documentXml === false) {
+        $zip->close();
+        return;
+    }
+    $repaired = wrapOrphanBodyRunsInDocumentXml($documentXml);
+    if ($repaired !== $documentXml) {
+        $zip->addFromString('word/document.xml', $repaired);
+    }
+    $zip->close();
+}
+
+/*
  * Extract <w:body> inner XML from a PhpWord instance (for TemplateProcessor merge).
  *
  * @param \PhpOffice\PhpWord\PhpWord $phpWordHandle
@@ -548,7 +638,7 @@ function extractDocumentBodyXmlFromPhpWord($phpWordHandle)
         $newDataXML .= trim($dataLine);
     }
     if (preg_match('%(?i)(?<=<w:body>)[\s|\S]*?(?=</w:body>)%', $newDataXML, $regs)) {
-        return $regs[0];
+        return normalizeWordXmlBlock($regs[0]);
     }
     return '';
 }
@@ -1273,6 +1363,13 @@ foreach ($documentTypeArray as $documentGenerate) {
         foreach ($templateVariablesCollection['data'] as $templateVariableCollection) {
             changeFormatTemplateVariable($data, $templateVariableCollection);
         }
+        // Track HTML template variables (Word XML blocks) — must use replaceXmlBlock
+        $htmlTemplateVariables = array();
+        foreach ($templateVariablesCollection['data'] as $templateVariableCollection) {
+            if (($templateVariableCollection['data']['UTP_CODE'] ?? '') === 'HTML') {
+                $htmlTemplateVariables[$templateVariableCollection['data']['UTP_VARIABLE_NAME']] = true;
+            }
+        }
         //-----------------------------------------Template Processor Set Values ------------------------------
         if (count($inFile) > 0) {
             $keysTemplatesLoop = array_keys($dataVariableTemplateLoop); // Created array with keys the array for the templates in loop - Loop
@@ -1311,7 +1408,7 @@ foreach ($documentTypeArray as $documentGenerate) {
                                 //In case value is an Image insert with correct function
                                 if ($value['type'] == "image") {
                                     if (file_exists($value['path'])) {
-                                      $templateProcessor->setImageValue($templateVariable, $value['path']);
+                                        $templateProcessor->setImageValue($templateVariable, $value['path']);
                                     } else {
                                         $data['YQP_ERROR_SLIP'] = "ERROR";
                                         $data['YQP_ERROR_MESSAGE_SLIP'] = "Template Variable " . $templateVariable . " not found insided collection for DOCUMENT TYPE  " . $documentGenerate . " document Nro " . $countTest;
@@ -1323,20 +1420,27 @@ foreach ($documentTypeArray as $documentGenerate) {
                                     }
                                 }
                             } else {
-                                //set value on templateVariable replacing html special chars 
-                                $value = htmlspecialchars_decode($value);
-                                $value = str_replace("&", "&amp;", $value);
-                                $value = str_replace("&amp;#8226;", "&#8226;", $value);
-                               $templateProcessor->setValue($templateVariable, $value);
+                                if ((isset($htmlTemplateVariables[$dataVariable]) || isWordXmlBlock($value)) && isWordXmlBlock($value)) {
+                                    // Word XML blocks (HTML variables, tenders table) must replace the whole paragraph, not w:t text
+                                    $templateProcessor->replaceXmlBlock($templateVariable, normalizeWordXmlBlock($value), 'w:p');
+                                } else {
+                                    //set value on templateVariable replacing html special chars
+                                    $value = htmlspecialchars_decode($value);
+                                    $value = str_replace("&", "&amp;", $value);
+                                    $value = str_replace("&amp;#8226;", "&#8226;", $value);
+                                    $templateProcessor->setValue($templateVariable, $value);
+                                }
                             }
                         } else {
                             //set empty Value
                             $templateProcessor->setValue($templateVariable, "");
                         }
                     }
-                    //Save Slip file 
+                    //Save Slip file
                     ob_clean();
                     $templateProcessor->saveAs($outFile);
+                    // Safety net: wrap any body-level orphan runs so Word can open the merged docx
+                    repairOrphanRunsInDocxFile($outFile);
                 }
             }
             //--------------------------------- Merge Documents ------------------------------------------------------

@@ -1,0 +1,377 @@
+{
+  "type": "screen_package",
+  "version": "2",
+  "screens": [
+    {
+      "id": null,
+      "uuid": "c4e8a1d2-6f30-4b7a-9c15-2d8e7a04b661",
+      "screen_category_id": "1",
+      "title": "Policy Request Edit",
+      "description": "Policy Request Edit. Intended Users is a checkbox Select List fed by a data connector. The Select All toggle is a synchronous watcher, not a calculated property, so the checkboxes stay editable. Select All checks every key stored in intendedUsersCatalog.",
+      "type": "FORM",
+      "config": [
+        {
+          "name": "Policy Request Edit",
+          "items": [
+            {
+              "uuid": "8f1c2b44-0a71-4e5d-b6c3-91d4e2a70f18",
+              "label": "Rich Text",
+              "config": {
+                "icon": "fas fa-pencil-ruler",
+                "label": null,
+                "content": "<h2>Policy Request Edit</h2><p>Intended Users lists the data connector rows as checkboxes. The Select All toggle at the end checks or clears every option.</p><p>On the Select List, choose the Intended Users data connector. Keep <strong>Render As = Checkbox</strong>, <strong>Allow Multiple Select</strong> on, and <strong>Value Type Returned = Single</strong>. Key is the stored id (usually <code>id</code>). Content is the label (usually <code>fullname</code>). Data Name is the array inside the connector response (usually <code>data</code>).</p><p>Select All does not read the connector by itself. The same array must also be in <strong>intendedUsersCatalog</strong>. Add a Data Connector watcher, turn on Run on screen load, and map the response array to <code>intendedUsersCatalog</code>. After import, assign a Run Script user to <em>PRE - Select All Intended Users</em>.</p><p>Do not bind <code>intendedUsers</code> to a calculated property. ProcessMaker disables a control that is a calculated property, and a calc cannot see data connector options.</p>",
+                "interactive": true,
+                "renderVarHtml": false
+              },
+              "component": "FormHtmlViewer",
+              "inspector": [
+                {
+                  "type": "FormTextArea",
+                  "field": "content",
+                  "config": {
+                    "rows": 5,
+                    "label": "Content",
+                    "value": null,
+                    "helper": "The HTML text to display"
+                  }
+                },
+                {
+                  "type": "FormCheckbox",
+                  "field": "renderVarHtml",
+                  "config": {
+                    "label": "Render HTML from a Variable",
+                    "value": null,
+                    "helper": null
+                  }
+                },
+                {
+                  "type": "FormInput",
+                  "field": "conditionalHide",
+                  "config": {
+                    "label": "Visibility Rule",
+                    "helper": "This control is hidden until this expression is true"
+                  }
+                },
+                {
+                  "type": "FormInput",
+                  "field": "customCssSelector",
+                  "config": {
+                    "label": "CSS Selector Name",
+                    "helper": "Use this in your custom css rules",
+                    "validation": "regex: [-?[_a-zA-Z]+[_-a-zA-Z0-9]*]"
+                  }
+                }
+              ],
+              "editor-control": "FormHtmlEditor",
+              "editor-component": "FormHtmlEditor"
+            },
+            {
+              "uuid": "b7d04e91-55c2-4a18-8f60-3c9a1e6d42ab",
+              "label": "Select List",
+              "config": {
+                "icon": "fas fa-angle-double-down",
+                "name": "intendedUsers",
+                "label": "Intended Users",
+                "helper": "Checkbox list from the Intended Users data connector. Value Type Returned must stay Single. Select All writes every Key found in intendedUsersCatalog.",
+                "options": {
+                  "key": "id",
+                  "value": "fullname",
+                  "dataName": "data",
+                  "jsonData": null,
+                  "renderAs": "checkbox",
+                  "editIndex": null,
+                  "pmqlQuery": "",
+                  "dataSource": "dataConnector",
+                  "optionsList": [],
+                  "removeIndex": null,
+                  "showRenderAs": true,
+                  "showJsonEditor": false,
+                  "showOptionCard": false,
+                  "selectedOptions": [],
+                  "allowMultiSelect": true,
+                  "optionsListExtra": [],
+                  "selectedEndPoint": null,
+                  "showRemoveWarning": false,
+                  "valueTypeReturned": "single",
+                  "selectedDataSource": null
+                },
+                "readonly": false,
+                "validation": [],
+                "placeholder": null,
+                "rootElement": "response",
+                "dataSourceUrl": null,
+                "dataSourceEndpoint": null
+              },
+              "component": "FormSelectList",
+              "inspector": [
+                {
+                  "type": "FormInput",
+                  "field": "name",
+                  "config": {
+                    "name": "Variable Name",
+                    "label": "Variable Name",
+                    "helper": "A variable name is a symbolic name to reference information.",
+                    "validation": "regex:/^([a-zA-Z]([a-zA-Z0-9_]?)+\\.?)+(?<!\\.)$/|required|not_in:null,break,case,catch,continue,debugger,default,delete,do,else,finally,for,function,if,in,instanceof,new,return,switch,this,throw,try,typeof,var,void,while,with,class,const,enum,export,extends,import,super,true,false"
+                  }
+                },
+                {
+                  "type": "FormInput",
+                  "field": "label",
+                  "config": {
+                    "label": "Label",
+                    "helper": "The label describes the field's name"
+                  }
+                },
+                {
+                  "type": "FormInput",
+                  "field": "helper",
+                  "config": {
+                    "label": "Helper Text",
+                    "helper": "Help text is meant to provide additional guidance on the field's value"
+                  }
+                },
+                {
+                  "type": "OptionsList",
+                  "field": "options",
+                  "config": {
+                    "label": null,
+                    "helper": null
+                  }
+                },
+                {
+                  "type": "FormCheckbox",
+                  "field": "readonly",
+                  "config": {
+                    "label": "Read Only",
+                    "helper": null
+                  }
+                },
+                {
+                  "type": "FormInput",
+                  "field": "conditionalHide",
+                  "config": {
+                    "label": "Visibility Rule",
+                    "helper": "This control is hidden until this expression is true"
+                  }
+                },
+                {
+                  "type": "FormInput",
+                  "field": "customCssSelector",
+                  "config": {
+                    "label": "CSS Selector Name",
+                    "helper": "Use this in your custom css rules",
+                    "validation": "regex: [-?[_a-zA-Z]+[_-a-zA-Z0-9]*]"
+                  }
+                },
+                {
+                  "type": "FormInput",
+                  "field": "ariaLabel",
+                  "config": {
+                    "label": "Aria Label",
+                    "helper": "Attribute designed to help assistive technology (e.g. screen readers) attach a label"
+                  }
+                }
+              ],
+              "editor-control": "FormSelectList",
+              "editor-component": "FormSelectList"
+            },
+            {
+              "uuid": "e2a96c08-71b4-4d3f-a851-6f0c9b15d774",
+              "label": "Checkbox",
+              "config": {
+                "icon": "fas fa-check-square",
+                "name": "selectAllIntendedUsers",
+                "label": "Select All",
+                "helper": "Checks every Intended Users option. Turning it off clears the selection. Individual boxes stay editable after that.",
+                "toggle": true,
+                "readonly": false,
+                "validation": "",
+                "initiallyChecked": false,
+                "customCssSelector": "select-all-intended-users"
+              },
+              "component": "FormCheckbox",
+              "inspector": [
+                {
+                  "type": "FormInput",
+                  "field": "name",
+                  "config": {
+                    "name": "Variable Name",
+                    "label": "Variable Name",
+                    "helper": "A variable name is a symbolic name to reference information.",
+                    "validation": "regex:/^([a-zA-Z]([a-zA-Z0-9_]?)+\\.?)+(?<!\\.)$/|required|not_in:null,break,case,catch,continue,debugger,default,delete,do,else,finally,for,function,if,in,instanceof,new,return,switch,this,throw,try,typeof,var,void,while,with,class,const,enum,export,extends,import,super,true,false"
+                  }
+                },
+                {
+                  "type": "FormInput",
+                  "field": "label",
+                  "config": {
+                    "label": "Label",
+                    "helper": "The label describes the field's name"
+                  }
+                },
+                {
+                  "type": "FormInput",
+                  "field": "helper",
+                  "config": {
+                    "label": "Helper Text",
+                    "helper": "Help text is meant to provide additional guidance on the field's value"
+                  }
+                },
+                {
+                  "type": "FormCheckbox",
+                  "field": "initiallyChecked",
+                  "config": {
+                    "label": "Checked by default",
+                    "helper": "Should the checkbox be checked by default"
+                  }
+                },
+                {
+                  "type": "FormCheckbox",
+                  "field": "toggle",
+                  "config": {
+                    "label": "Toggle Style",
+                    "helper": ""
+                  }
+                },
+                {
+                  "type": "FormInput",
+                  "field": "conditionalHide",
+                  "config": {
+                    "label": "Visibility Rule",
+                    "helper": "This control is hidden until this expression is true"
+                  }
+                },
+                {
+                  "type": "FormInput",
+                  "field": "customCssSelector",
+                  "config": {
+                    "label": "CSS Selector Name",
+                    "helper": "Use this in your custom css rules",
+                    "validation": "regex: [-?[_a-zA-Z]+[_-a-zA-Z0-9]*]"
+                  }
+                }
+              ],
+              "editor-control": "FormCheckbox",
+              "editor-component": "FormCheckbox"
+            }
+          ],
+          "order": 1
+        }
+      ],
+      "computed": [
+        {
+          "id": 1,
+          "name": "Intended users catalog JSON",
+          "type": "javascript",
+          "formula": "var catalog = this.intendedUsersCatalog;\nif (!Array.isArray(catalog) && catalog && Array.isArray(catalog.data)) {\n  catalog = catalog.data;\n}\nif (!Array.isArray(catalog)) {\n  catalog = [];\n}\nreturn JSON.stringify(catalog);",
+          "property": "intendedUsersCatalogJson"
+        },
+        {
+          "id": 2,
+          "name": "Intended users selection JSON",
+          "type": "javascript",
+          "formula": "var selected = this.intendedUsers;\nif (!Array.isArray(selected)) {\n  selected = [];\n}\nreturn JSON.stringify(selected);",
+          "property": "intendedUsersJson"
+        }
+      ],
+      "custom_css": "[selector='select-all-intended-users'] {\n  margin-top: 4px;\n  padding-top: 8px;\n  border-top: 1px solid #d9e2ec;\n}\n",
+      "created_at": "2026-10-06T21:00:00+00:00",
+      "updated_at": "2026-10-06T21:00:00+00:00",
+      "status": "ACTIVE",
+      "key": null,
+      "watchers": [
+        {
+          "input_data": "{\n  \"selectAllIntendedUsers\": \"{{selectAllIntendedUsers}}\",\n  \"catalogJson\": \"{{intendedUsersCatalogJson}}\",\n  \"currentJson\": \"{{intendedUsersJson}}\"\n}",
+          "script_configuration": "{\"valueKey\":\"id\"}",
+          "synchronous": true,
+          "show_async_loading": false,
+          "run_onload": false,
+          "name": "Select all intended users",
+          "watching": "selectAllIntendedUsers",
+          "script": {
+            "id": "script-901",
+            "uuid": "6a4d8c20-1e77-4b9f-8d33-5c0b7e19a442",
+            "key": null,
+            "title": "PRE - Select All Intended Users",
+            "description": "Checks or clears every Intended Users option from intendedUsersCatalog.",
+            "language": "php",
+            "code": "<?php\n/*\n * Select All for the Intended Users checkbox list.\n *\n * A calculated property cannot do this job:\n * - Data connector options stay inside the Select List component.\n * - Binding intendedUsers to a calc disables the checkboxes.\n *\n * This watcher writes intendedUsers only. The control stays editable.\n * intendedUsersCatalog must be the same array the connector returns.\n * script configuration: {\"valueKey\":\"id\"}\n * Return value is stored in the watcher output variable intendedUsers.\n */\n\nif (!function_exists('pre_decode_json_list')) {\n    function pre_decode_json_list($value)\n    {\n        if (is_array($value)) {\n            return $value;\n        }\n        if (!is_string($value) || $value === '') {\n            return array();\n        }\n        $decodedText = html_entity_decode($value, ENT_QUOTES, 'UTF-8');\n        $decoded = json_decode($decodedText, true);\n        return is_array($decoded) ? $decoded : array();\n    }\n}\n\nif (!function_exists('pre_is_list')) {\n    function pre_is_list($array)\n    {\n        if (!is_array($array)) {\n            return false;\n        }\n        $index = 0;\n        foreach ($array as $key => $unused) {\n            if ($key !== $index) {\n                return false;\n            }\n            $index++;\n        }\n        return true;\n    }\n}\n\n$selectAllRaw = '';\nif (isset($data['selectAllIntendedUsers'])) {\n    $selectAllRaw = strtolower(trim((string) $data['selectAllIntendedUsers']));\n}\n$selectAll = in_array($selectAllRaw, array('1', 'true', 'yes', 'on'), true);\n\n$valueKey = 'id';\nif (isset($config['valueKey']) && is_string($config['valueKey']) && $config['valueKey'] !== '') {\n    $valueKey = $config['valueKey'];\n}\n\n$catalog = pre_decode_json_list(isset($data['catalogJson']) ? $data['catalogJson'] : '[]');\nif (!pre_is_list($catalog) && isset($catalog['data']) && pre_is_list($catalog['data'])) {\n    $catalog = $catalog['data'];\n}\n\n$current = pre_decode_json_list(isset($data['currentJson']) ? $data['currentJson'] : '[]');\n\nif (!$selectAll) {\n    return array();\n}\n\nif (!pre_is_list($catalog) || count($catalog) === 0) {\n    return $current;\n}\n\n$selected = array();\nforeach ($catalog as $item) {\n    if (is_array($item)) {\n        if (array_key_exists($valueKey, $item) && $item[$valueKey] !== null && $item[$valueKey] !== '') {\n            $selected[] = (string) $item[$valueKey];\n        } elseif (array_key_exists('value', $item) && $item['value'] !== null && $item['value'] !== '') {\n            $selected[] = (string) $item['value'];\n        }\n    } elseif (is_scalar($item) && $item !== '') {\n        $selected[] = (string) $item;\n    }\n}\n\nreturn array_values($selected);\n",
+            "retry_wait_time": 5,
+            "retry_attempts": 0,
+            "timeout": 60,
+            "created_at": "2026-10-06T21:00:00+00:00",
+            "updated_at": "2026-10-06T21:00:00+00:00",
+            "status": "ACTIVE",
+            "script_category_id": "1",
+            "is_template": 0,
+            "asset_type": null,
+            "projects": "[]"
+          },
+          "script_id": "script-901",
+          "script_key": null,
+          "output_variable": "intendedUsers",
+          "uid": "1728240000001"
+        }
+      ],
+      "translations": null,
+      "is_template": 0,
+      "asset_type": null,
+      "is_default": 0,
+      "projects": "[]",
+      "categories": [
+        {
+          "id": 1,
+          "uuid": "9bb6c4df-d9e1-443d-96b5-6659ecf89c4a",
+          "name": "Uncategorized",
+          "status": "ACTIVE",
+          "is_system": 0,
+          "created_at": "2024-04-02T21:21:33+00:00",
+          "updated_at": "2024-04-02T21:21:33+00:00",
+          "pivot": {
+            "category_type": "ProcessMaker\\Models\\ScreenCategory",
+            "assignable_id": 1,
+            "category_id": 1
+          }
+        }
+      ]
+    }
+  ],
+  "screen_categories": [],
+  "scripts": [
+    {
+      "id": 901,
+      "uuid": "6a4d8c20-1e77-4b9f-8d33-5c0b7e19a442",
+      "key": null,
+      "title": "PRE - Select All Intended Users",
+      "description": "Checks or clears every Intended Users option from intendedUsersCatalog.",
+      "language": "php",
+      "code": "<?php\n/*\n * Select All for the Intended Users checkbox list.\n *\n * A calculated property cannot do this job:\n * - Data connector options stay inside the Select List component.\n * - Binding intendedUsers to a calc disables the checkboxes.\n *\n * This watcher writes intendedUsers only. The control stays editable.\n * intendedUsersCatalog must be the same array the connector returns.\n * script configuration: {\"valueKey\":\"id\"}\n * Return value is stored in the watcher output variable intendedUsers.\n */\n\nif (!function_exists('pre_decode_json_list')) {\n    function pre_decode_json_list($value)\n    {\n        if (is_array($value)) {\n            return $value;\n        }\n        if (!is_string($value) || $value === '') {\n            return array();\n        }\n        $decodedText = html_entity_decode($value, ENT_QUOTES, 'UTF-8');\n        $decoded = json_decode($decodedText, true);\n        return is_array($decoded) ? $decoded : array();\n    }\n}\n\nif (!function_exists('pre_is_list')) {\n    function pre_is_list($array)\n    {\n        if (!is_array($array)) {\n            return false;\n        }\n        $index = 0;\n        foreach ($array as $key => $unused) {\n            if ($key !== $index) {\n                return false;\n            }\n            $index++;\n        }\n        return true;\n    }\n}\n\n$selectAllRaw = '';\nif (isset($data['selectAllIntendedUsers'])) {\n    $selectAllRaw = strtolower(trim((string) $data['selectAllIntendedUsers']));\n}\n$selectAll = in_array($selectAllRaw, array('1', 'true', 'yes', 'on'), true);\n\n$valueKey = 'id';\nif (isset($config['valueKey']) && is_string($config['valueKey']) && $config['valueKey'] !== '') {\n    $valueKey = $config['valueKey'];\n}\n\n$catalog = pre_decode_json_list(isset($data['catalogJson']) ? $data['catalogJson'] : '[]');\nif (!pre_is_list($catalog) && isset($catalog['data']) && pre_is_list($catalog['data'])) {\n    $catalog = $catalog['data'];\n}\n\n$current = pre_decode_json_list(isset($data['currentJson']) ? $data['currentJson'] : '[]');\n\nif (!$selectAll) {\n    return array();\n}\n\nif (!pre_is_list($catalog) || count($catalog) === 0) {\n    return $current;\n}\n\n$selected = array();\nforeach ($catalog as $item) {\n    if (is_array($item)) {\n        if (array_key_exists($valueKey, $item) && $item[$valueKey] !== null && $item[$valueKey] !== '') {\n            $selected[] = (string) $item[$valueKey];\n        } elseif (array_key_exists('value', $item) && $item['value'] !== null && $item['value'] !== '') {\n            $selected[] = (string) $item['value'];\n        }\n    } elseif (is_scalar($item) && $item !== '') {\n        $selected[] = (string) $item;\n    }\n}\n\nreturn array_values($selected);\n",
+      "retry_wait_time": 5,
+      "retry_attempts": 0,
+      "timeout": 60,
+      "created_at": "2026-10-06T21:00:00+00:00",
+      "updated_at": "2026-10-06T21:00:00+00:00",
+      "status": "ACTIVE",
+      "script_category_id": "1",
+      "is_template": 0,
+      "asset_type": null,
+      "projects": "[]",
+      "categories": [
+        {
+          "id": 1,
+          "uuid": "9bb6c4df-d9e1-443d-96b5-6659ecf89c4a",
+          "name": "Uncategorized",
+          "status": "ACTIVE",
+          "is_system": 0,
+          "created_at": "2024-04-02T21:21:33+00:00",
+          "updated_at": "2024-04-02T21:21:33+00:00",
+          "pivot": {
+            "category_type": "ProcessMaker\\Models\\ScriptCategory",
+            "assignable_id": 901,
+            "category_id": 1
+          }
+        }
+      ]
+    }
+  ]
+}

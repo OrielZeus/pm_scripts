@@ -250,10 +250,16 @@ function callGetCurlFiles($idFile, $nameFile)
     ));
     $response = curl_exec($curl);
     curl_close($curl);
+    if (empty($idFile) || $nameFile === null || $nameFile === '') {
+        return false;
+    }
     //Create file in temporary folder
-    $tempFolder = trim(sys_get_temp_dir() . PHP_EOL);
+    $tempFolder = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR);
     $filePath = $tempFolder . DIRECTORY_SEPARATOR . $nameFile;
     $file = fopen($filePath, 'w');
+    if ($file === false) {
+        return false;
+    }
     fwrite($file, $response);
     fclose($file);
     return $filePath;
@@ -331,10 +337,14 @@ $apiInstance = $api->requestFiles();
 $pathSlipQuoteOfficial = callGetCurlFiles($idFileQuote, $dataClientInfo['YQP_DOWNLOAD_REVIEW_SLIP_DOCUMENT_URL_NAME_BUTTON']);
 $dataName = 'YQP_DOWNLOAD_REVIEW_SLIP_DOCUMENT';
 $newSlipQuote = $apiInstance->createRequestFile($processRequestIdForte, $dataName, $pathSlipQuoteOfficial);
-//Create Slip Adobe
-$pathSlipQuoteOfficialAdobe = callGetCurlFiles($idFileQuoteAdobe, $dataClientInfo['YQP_DOWNLOAD_REVIEW_SLIP_DOCUMENT_URL_ADOBE_NAME_BUTTON']);
-$dataNameAdobe = 'YQP_DOWNLOAD_REVIEW_SLIP_DOCUMENT_ADOBE';
-$newSlipQuoteAdobe = $apiInstance->createRequestFile($processRequestIdForte, $dataNameAdobe, $pathSlipQuoteOfficialAdobe);
+//Create Slip Adobe only when the Adobe slip document was generated upstream
+if (!empty($idFileQuoteAdobe) && !empty($dataClientInfo['YQP_DOWNLOAD_REVIEW_SLIP_DOCUMENT_URL_ADOBE_NAME_BUTTON'])) {
+    $pathSlipQuoteOfficialAdobe = callGetCurlFiles($idFileQuoteAdobe, $dataClientInfo['YQP_DOWNLOAD_REVIEW_SLIP_DOCUMENT_URL_ADOBE_NAME_BUTTON']);
+    if ($pathSlipQuoteOfficialAdobe !== false) {
+        $dataNameAdobe = 'YQP_DOWNLOAD_REVIEW_SLIP_DOCUMENT_ADOBE';
+        $newSlipQuoteAdobe = $apiInstance->createRequestFile($processRequestIdForte, $dataNameAdobe, $pathSlipQuoteOfficialAdobe);
+    }
+}
 
 //Get URL Connection openL
 $openLUrl = getenv('OPENL_CONNECTION');

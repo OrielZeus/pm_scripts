@@ -1480,13 +1480,23 @@ $dataSlipInformation["YQP_REINSURER_INFORMATION"] = $data["YQP_REINSURER_INFORMA
 $reinsurerSlip = "<table style='width:100%;font-family: Corbel;font-size: 11pt;'>";
 $noCode = "";
 $noCodeValidate = "YES";
+$sourceDisplayName = "";
+if (!empty($data["YQP_COMPLETE_NAME_SOURCE"])) {
+    $sourceDisplayName = $data["YQP_COMPLETE_NAME_SOURCE"];
+} elseif (!empty($data["YQP_SOURCE_OTHER"])) {
+    $sourceDisplayName = $data["YQP_SOURCE_OTHER"];
+} elseif (is_array($data["YQP_SOURCE"] ?? null) && !empty($data["YQP_SOURCE"]["LABEL"])) {
+    $sourceDisplayName = $data["YQP_SOURCE"]["LABEL"];
+} elseif (!empty($data["YQP_SOURCE"])) {
+    $sourceDisplayName = $data["YQP_SOURCE"];
+}
 if ($data['YQP_SOURCE'] != 'Other') {
     if ($data['YQP_LANGUAGE'] == 'ES') {
         $reinsurerSlip .= "<tr><td style='width:10%;'></td>";
-        $reinsurerSlip .= "<td style='width:25%;' colspan='2'>" . $data['YQP_FORTE_ORDER'] . "% por " . $data["YQP_COMPLETE_NAME_SOURCE"] . "</td></tr>";
+        $reinsurerSlip .= "<td style='width:25%;' colspan='2'>" . $data['YQP_FORTE_ORDER'] . "% por " . $sourceDisplayName . "</td></tr>";
     } else {
         $reinsurerSlip .= "<tr><td style='width:10%;'></td>";
-        $reinsurerSlip .= "<td style='width:25%;' colspan='2'>" . $data['YQP_FORTE_ORDER'] . "% by " . $data["YQP_COMPLETE_NAME_SOURCE"] . "</td></tr>";
+        $reinsurerSlip .= "<td style='width:25%;' colspan='2'>" . $data['YQP_FORTE_ORDER'] . "% by " . $sourceDisplayName . "</td></tr>";
     }
     $reinsurerSlip .= "<tr><td colspan='3'></td></tr>";
 }
